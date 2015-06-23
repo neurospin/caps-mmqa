@@ -1,0 +1,43 @@
+<pipeline>
+    <docstring>
+        Spike desction and SNR estimation.
+    </docstring>
+    <processes>
+        <standard name="snr" processing="False">
+            <module>mmqa.fmri.fmri_snr_sfnr.snr_percent_fluctuation_and_drift</module>
+            <force name="roi_size" value="20"/>
+            <force name="output_directory" value="Undefined"/>
+        </standard>
+        <standard name="spikes" processing="False">
+            <module>mmqa.fmri.fmri_spikes.spike_detector</module>
+            <force name="zalph" value="5"/>
+            <force name="time_axis" value="-1"/>
+            <force name="slice_axis" value="-2"/>
+            <force name="output_directory" value="Undefined"/>
+        </standard>
+    </processes>
+    <inputs>
+        <input name="image_file" dest="snr.image_file"/>
+        <input name="repetition_time" dest="snr.repetition_time"/>
+        <input name="roi_size" dest="snr.roi_size"/>
+        <input name="zalph" dest="spikes.zalph"/>
+        <input name="time_axis" dest="spikes.time_axis"/>
+        <input name="slice_axis" dest="spikes.slice_axis"/>
+    </inputs>
+    <links>
+        <link src="image_file" dest="spikes.image_file"/>
+    </links>
+    <outputs>
+        <output name="snap_fluctuation_drift" src="snr.snap_fluctuation_drift"/>
+        <output name="fluctuation_drift_file" src="snr.fluctuation_drift_file"/>
+        <output name="snap_spikes" src="spikes.snap_spikes"/>
+        <output name="spikes_file" src="spikes.spikes_file"/>
+    </outputs>
+    <positions>
+        <position process="inputs" x="0" y="0"/>
+        <position process="snr" x="200" y="200"/>
+        <position process="spikes" x="400" y="-200"/>
+        <position process="outputs" x="800" y="0"/>
+    </positions>
+    <scale factor="0.5"/> 
+</pipeline>
