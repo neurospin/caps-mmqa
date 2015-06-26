@@ -23,9 +23,11 @@
         <input name="zalph" dest="spikes.zalph"/>
         <input name="time_axis" dest="spikes.time_axis"/>
         <input name="slice_axis" dest="spikes.slice_axis"/>
+        <input name="figure_titles" dest="snr.title"/>
     </inputs>
     <links>
         <link src="image_file" dest="spikes.image_file"/>
+        <link src="figure_titles" dest="spikes.title" />
     </links>
     <outputs>
         <output name="snap_fluctuation_drift" src="snr.snap_fluctuation_drift"/>
@@ -39,5 +41,5 @@
         <position process="spikes" x="400" y="-200"/>
         <position process="outputs" x="800" y="0"/>
     </positions>
-    <scale factor="0.5"/> 
+    <scale factor="1.0"/> 
 </pipeline>
