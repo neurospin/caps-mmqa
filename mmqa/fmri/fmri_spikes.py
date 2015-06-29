@@ -31,7 +31,7 @@ from stats_utils import mutual_information
 
 
 def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
-                   slice_axis=-2):
+                   slice_axis=-2, title=None):
     """ Detect spiked slices.
 
     Raises
@@ -50,6 +50,8 @@ def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
             varies over time. The default is the last axis."/>
         <input name="slice_axis" type="Int" desc="Axis of the array that
             varies over image slice. The default is the last non-time axis."/>
+        <input name="title" type="String" desc="The first part of the figures'
+            title (optional)" optional="True"/>
     </process>
     """
     # Load the image and get the associated numpy array
@@ -65,13 +67,13 @@ def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
     snap_spikes = os.path.join(output_directory, "spikes.pdf")
     slices_to_correct, spikes = detect_spikes_time_slice_diffs(
         array, zalph=zalph, time_axis=time_axis, slice_axis=slice_axis,
-        output_fname=snap_spikes)
+        output_fname=snap_spikes, title=title)
 
     # Save the result in a json
     spikes_file = os.path.join(output_directory, "spikes.json")
     for key, value in slices_to_correct.iteritems():
         slices_to_correct[key] = value.tolist()
-        
+
     with open(spikes_file, "w") as json_data:
         json.dump(slices_to_correct, json_data)
 
@@ -182,7 +184,7 @@ def display_slice_distributions(gaussians, bins, output_fname):
             fig = plt.figure()
             plot = fig.add_subplot(111)
             plot.grid()
-            plt.title("Spikes at slice {0}".format(cnt))            
+            plt.title("Spikes at slice {0}".format(cnt))
             plt.hist(dataset["dist"], bins, normed=1, facecolor="green",
                      alpha=0.5)
             plot.plot((dataset["mean"], dataset["mean"]), (0, 1), "r")
@@ -202,7 +204,8 @@ def display_slice_distributions(gaussians, bins, output_fname):
 
 
 def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
-                                   slice_axis=-2, output_fname=None):
+                                   slice_axis=-2, output_fname=None,
+                                   title=None):
     """ Detect spiked slices using the time slice difference as a criterion.
 
     Parameters
@@ -239,7 +242,7 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
     logger.info("Computing time-point to time-point differences over slices...")
     smd2 = time_slice_diffs(array)
     logger.info("Metric smd2 shape is '%s', ie. (number of timepoints - 1, "
-                "number of slices).", smd2.shape)   
+                "number of slices).", smd2.shape)
 
     # Detect spikes from quared difference
     spikes = spikes_from_slice_diff(smd2, zalph)
@@ -261,12 +264,12 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
 
     # Display detected spikes
     if output_fname is not None:
-        display_spikes(smd2, spikes, output_fname)
+        display_spikes(smd2, spikes, output_fname, title)
 
     return slices_to_correct, spikes
 
 
-def display_spikes(smd2, spikes, output_fname):
+def display_spikes(smd2, spikes, output_fname, title):
     """ Display the detected spikes.
 
     Parameters
@@ -304,7 +307,11 @@ def display_spikes(smd2, spikes, output_fname):
                 fig = plt.figure()
                 plot = fig.add_subplot(111)
                 plot.grid()
-                plt.title("Spikes near slice {0}".format(cnt - 1))            
+                if title:
+                    plt.title("{1}\nSpikes near slice {0}".format(cnt - 1,
+                                                                  title))
+                else:
+                    plt.title("Spikes near slice {0}".format(cnt - 1))
                 plot.plot(range(nb_of_timepoints), timepoint_smd2, "yo-")
                 for spike_index in np.where(timepoint_spikes > 0)[0]:
                     plot.plot((spike_index, spike_index),
@@ -316,7 +323,7 @@ def display_spikes(smd2, spikes, output_fname):
 
             # Increment slice numbre
             cnt += 1
-    
+
         # Close pdf file
         pdf.close()
 
@@ -339,9 +346,9 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
     zalph: float (optional default 5)
         cut off for the sum of square.
     lower_zalph: float (optional default 3)
-        lower cut off for the sum of square. Used to detect histeresis spikes. 
+        lower cut off for the sum of square. Used to detect histeresis spikes.
         Value must be above this threshold to be a candidate for histeresis.
-    
+
     Returns
     -------
     spikes: array (T-1, S)
@@ -373,7 +380,7 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
         logger.info("Found '%s' spike(s) at slice '%s' between timepoints '%s' "
                     ". The lower spikes are '%s'.", nb_spikes, slice_index,
                     spikes[:, slice_index], lower_spikes[:, slice_index])
-      
+
     return spikes
 
 
@@ -387,7 +394,7 @@ def detect_pattern(array, pattern, ppos=None, dpos=0):
     pattern: 1-dimension array or list
         the pattern to detect.
     ppos: 's'|'e'|integer | None
-        pattern position: a specific position in time to detect the pattern, 
+        pattern position: a specific position in time to detect the pattern,
         None means over all possible axis 0 positions.
     dpos: integer
         where to put '1' or 'True' in the result array when pattern is detected
@@ -400,7 +407,7 @@ def detect_pattern(array, pattern, ppos=None, dpos=0):
 
     Raises
     ------
-    ValueError: if a wrong pattern is specified.  
+    ValueError: if a wrong pattern is specified.
     """
     # Inner parameters
     shape = array.shape
@@ -423,22 +430,22 @@ def detect_pattern(array, pattern, ppos=None, dpos=0):
 
 
 def final_detection(spikes):
-    """ This function takes an array with zeros or ones, look at when two 
-    "ones" follow each other in the time direction (first dimension), and return 
-    an array of ones in these cases. These are the slices that we can 
-    potentially correct if they are isolated. 
+    """ This function takes an array with zeros or ones, look at when two
+    "ones" follow each other in the time direction (first dimension), and return
+    an array of ones in these cases. These are the slices that we can
+    potentially correct if they are isolated.
 
     Parameters
     ----------
     spikes: array (T-1, S)
         the detected spikes array.
-    
+
     Returns
     -------
     final: array (T, S)
-        the spikes array. 
+        the spikes array.
     """
-    # Initialize the detection result 
+    # Initialize the detection result
     shape = spikes.shape
     final = np.zeros(shape=(shape[0] + 1, shape[1]), dtype=np.int)
 
@@ -478,6 +485,6 @@ if __name__ == "__main__":
     print slices_to_correct
 
 
-     
+
 
 

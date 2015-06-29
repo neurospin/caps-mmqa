@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 
 def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
-                                      output_directory):
+                                      output_directory, title=None):
     """ Compute the fluctuation and drift on a central roi.
 
     <process>
@@ -36,6 +36,8 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
             compute the fluuctation and drift."/>
         <input name="output_directory" type="Directory" desc="The destination
             folder."/>
+        <input name="title" type="String" desc="The first part of the figure's
+            title (optional)" optional="True"/>
     </process>
     """
     # Load the functional volume array
@@ -72,13 +74,14 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     pdf = PdfPages(snap_fluctuation_drift)
     try:
         # Plot one figure per page
-        fig = time_series_figure(average_intensity, polynomial, drift, snr)
+        fig = time_series_figure(average_intensity, polynomial, drift, snr,
+                                 title)
         pdf.savefig(fig)
         plt.close()
-        fig = spectrum_figure(spectrum)
+        fig = spectrum_figure(spectrum, title)
         pdf.savefig(fig)
         plt.close()
-        fig = weisskoff_figure(fluctuations, theoretical_fluctuations)
+        fig = weisskoff_figure(fluctuations, theoretical_fluctuations, title)
         pdf.savefig(fig)
         plt.close()
 
@@ -233,7 +236,7 @@ def get_static_spatial_noise(array):
     Returns
     -------
     ssn_array: array [X,Y,Z]
-        the static spatial noise.   
+        the static spatial noise.
     """
     shape_t = array.shape[3]
     odd_array = array[..., range(1, shape_t, 2)]
@@ -257,7 +260,7 @@ def get_spatial_noise_ratio(signal_array, ssn_array, nb_time_points,
     signal_array: array [X,Y,Z]
         the fmri signal.
     ssn_array: array [X,Y,Z]
-        the static spatial noise.  
+        the static spatial noise.
     nb_time_points: int
         the number of time points in the fMRI serie.
     roi_size: int (default 10)
@@ -336,7 +339,7 @@ def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
 
     # Compute the average voxel intensity across time
     average_intensity = numpy.sum(numpy.sum(roi, 0), 0)
-    average_intensity /= shape[0] * shape[1]
+    average_intensity /= (shape[0] * shape[1])
 
     # Compute the temporal fluctuation noise
     # > a second-order polynomial detrending to remove the slow drift
@@ -344,14 +347,13 @@ def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
     polynomial = numpy.polyfit(x, average_intensity, 2)
     average_intensity_model = numpy.polyval(polynomial, x)
     # > a fluctuation value is calculated as the temporal standard deviation
-    # of the residual variance of each voxel after the detrending 
+    # of the residual variance of each voxel after the detrending
     residuals = average_intensity - average_intensity_model
     fluctuation = numpy.std(residuals) / mean_signal_intensity
 
     # Compute the drift
-    fluctuation = numpy.std(residuals) / mean_signal_intensity
     drift = (average_intensity_model.max() -
-            average_intensity_model.min()) / mean_signal_intensity
+             average_intensity_model.min()) / mean_signal_intensity
 
     return average_intensity, polynomial, residuals, fluctuation, drift
 
@@ -408,7 +410,7 @@ def get_weisskoff_analysis(array, max_roi_size=30):
             numpy.vstack((roi_sizes, theoretical_fluctuation)))
 
 
-def weisskoff_figure(fluctuations, theoretical_fluctuations):
+def weisskoff_figure(fluctuations, theoretical_fluctuations, title=None):
     """ Return a matplotlib figure containing the Weisskoff analysis.
 
     Parameters
@@ -421,7 +423,10 @@ def weisskoff_figure(fluctuations, theoretical_fluctuations):
     figure = plt.figure()
     plot = figure.add_subplot(111)
     plot.grid(True, which="both", ls="-")
-    plt.title("Weisskoff analysis")
+    if title:
+        plt.title("{0}\nWeisskoff analysis".format(title))
+    else:
+        plt.title("Weisskoff analysis")
     plot.plot(fluctuations[0], 100 * fluctuations[1], "ko-", fillstyle="full")
     plot.plot(theoretical_fluctuations[0], 100 * theoretical_fluctuations[1],
               "ko-", markerfacecolor="w")
@@ -434,29 +439,36 @@ def weisskoff_figure(fluctuations, theoretical_fluctuations):
     return figure
 
 
-def spectrum_figure(spectrum):
+def spectrum_figure(spectrum, title=None):
     """ Return a matplotlib figure containing the Fourier spectrum, without its
     DC coefficient.
     """
     figure = plt.figure()
     plot = figure.add_subplot(111)
     plot.grid()
-    plt.title("Residual Spectrum")
+    if title:
+        plt.title("{0}\nResidual Spectrum".format(title))
+    else:
+        plt.title("Residual Spectrum")
     plot.plot(spectrum[0, 1:], spectrum[1, 1:], "k-")
     plot.axes.set_xlabel("Frequency (Hz)")
     plot.axes.set_ylabel("Magnitude")
     return figure
 
 
-def time_series_figure(time_series, polynomial, drift, snr):
+def time_series_figure(time_series, polynomial, drift, snr, title=None):
     """ Return a matplotlib figure containing the time series and its
     polynomial model.
     """
     figure = plt.figure()
     plot = figure.add_subplot(111)
     plot.grid()
-    plt.title("Drift: {0: .1f}% - SNR: {1: .1f}dB".format(
-        drift * 100, 10 * numpy.log10(snr)))
+    if title:
+        plt.title("{2}\nDrift: {0: .1f}% - SNR: {1: .1f}dB".format(
+            drift * 100, 10 * numpy.log10(snr), title))
+    else:
+        plt.title("Drift: {0: .1f}% - SNR: {1: .1f}dB".format(
+            drift * 100, 10 * numpy.log10(snr)))
     x = numpy.arange(2, 2 + len(time_series))
     model = numpy.polyval(polynomial, x)
     plot.plot(x, time_series, "k-")
