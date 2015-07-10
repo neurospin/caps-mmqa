@@ -13,11 +13,67 @@ import json
 import nibabel
 import numpy
 import matplotlib
+import scipy.ndimage as ndim
 
 matplotlib.use("AGG")
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+
+
+def signal_to_noise_ratio(image_file, mask_file, output_directory,
+                          roi_size=10):
+    """
+    Compute signal to noise ratio of a 4D image (from Velasco 2014)
+    "It takes as 'signal' the average voxel intensity in all the ROIs
+    defined in the object, averaged across time. It takes as 'noise' the
+    standard deviation (acress space) of the signal in the ROIs defined in
+    the background, and then averages across time.
+
+    <process>
+        <return name="snr_file" type="File" desc="A score in a json file"/>
+        <input name="image_file" type="File" desc="A functional volume."/>
+        <input name="mask_file" type="File" desc="The BET mask"/>
+        <input name="output_directory" type="Directory" desc="The output
+            directory"/>
+        <input name="roi_size" type="Int" desc="Size of the central ROI
+            (optional)" optional="True"/>
+    </process>
+    """
+    # Get image data
+    array_image = load_fmri_dataset(image_file)
+
+    # Create a central roi
+    center = numpy.round(numpy.asarray(array_image.shape) / 2)
+    signal_roi_array = array_image[
+        center[0] - roi_size: center[0] + roi_size,
+        center[1] - roi_size: center[1] + roi_size,
+        center[2],
+        :]
+
+    # average over time and space
+    signal_summary = numpy.average(signal_roi_array)
+
+    # Get background data
+    array_mask = load_fmri_dataset(mask_file)
+    # Dilation of the mask
+    mask = ndim.binary_dilation(array_mask).astype(array_mask.dtype)
+    # compute the standard deviation for each volume
+    stds = [numpy.std(numpy.multiply(array_image[:, :, :, x], mask))
+            for x in range(array_image.shape[3])]
+
+    # average over time
+    noise_summary = numpy.average(stds)
+
+    # comute score and save it in json file
+    snr = signal_summary / (1.53 * noise_summary)
+    results = {
+        "snr": float(snr),
+        }
+    with open(os.path.join(output_directory, "snr.json"), "w") as _file:
+        json.dump(results, _file)
+
+    return os.path.join(output_directory, "snr.json")
 
 
 def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
@@ -27,8 +83,8 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     <process>
         <return name="snap_fluctuation_drift" type="File" desc="A functional
         volume."/>
-        <return name="fluctuation_drift_file" type="File" desc="A functional
-        volume."/>
+        <return name="fluctuation_drift_file" type="File" desc="A score
+        in a json file."/>
         <input name="image_file" type="File" desc="A functional volume."/>
         <input name="repetition_time" type="Float" desc="The fMRI sequence
             repetition time (in seconds)."/>
@@ -63,7 +119,7 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
         output_directory, "snr_fluctuation_drift.json")
     results = {
         "drift": drift * 100,
-        "snr": 10 * numpy.log10(snr)
+        "sfnr": 10 * numpy.log10(snr)
     }
     with open(fluctuation_drift_file, "w") as json_data:
         json.dump(results, json_data)
@@ -477,3 +533,35 @@ def time_series_figure(time_series, polynomial, drift, snr, title=None):
     plot.axes.set_ylabel("Intensity")
     return figure
 
+
+def aggregate_results(snr_score, sfnr_score, spike_score, output_directory):
+    """
+    This function takes the dictionaries outputed by other processed and
+    merge them into one general result json file
+    NOTE: if 2 files share the same key, a value will be overwritten !
+    <process>
+        <return name="scores_file" type="File" desc="All scores in a
+            json file"/>
+        <input name="snr_score" type="File" desc="the snr json file"/>
+        <input name="sfnr_score" type="File" desc="the sfnr json file"/>
+        <input name="spike_score" type="File" desc="the spike json file"/>
+        <input name="output_directory" type="Directory" desc="The output
+            directory"/>
+    </process>
+    """
+
+    out = {}
+    with open(snr_score, "r") as _file:
+        temp = json.load(_file)
+    out.update(temp)
+    with open(sfnr_score, "r") as _file:
+        temp = json.load(_file)
+    out.update(temp)
+    with open(spike_score, "r") as _file:
+        temp = json.load(_file)
+    out.update(temp)
+
+    with open(os.path.join(output_directory, "QA_scores.json"), "w") as _file:
+        json.dump(out, _file)
+
+    return os.path.join(output_directory, "QA_scores.json")

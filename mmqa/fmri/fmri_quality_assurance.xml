@@ -3,7 +3,19 @@
         Spike detection and SNR estimation.
     </docstring>
     <processes>
+        <standard name="brain_extraction" processing="False">
+            <module>nipype.interfaces.fsl.BET</module>
+            <force name="output_directory" value="Undefined"/>
+            <force name="terminal_output" value="none"/>
+            <force name="mask" value="True"/>
+            <force name="no_output" value="True"/>
+        </standard>
         <standard name="snr" processing="False">
+            <module>mmqa.fmri.fmri_snr_sfnr.signal_to_noise_ratio</module>
+            <force name="output_directory" value="Undefined"/>
+            <force name="roi_size" value="20"/>
+        </standard>
+        <standard name="snr_fluct_and_drift" processing="False">
             <module>mmqa.fmri.fmri_snr_sfnr.snr_percent_fluctuation_and_drift</module>
             <force name="roi_size" value="20"/>
             <force name="output_directory" value="Undefined"/>
@@ -15,31 +27,43 @@
             <force name="slice_axis" value="-2"/>
             <force name="output_directory" value="Undefined"/>
         </standard>
+        <standard name="aggregate_results" processing="False">
+            <module>mmqa.fmri.fmri_snr_sfnr.aggregate_results</module>
+            <force name="output_directory" value="Undefined"/>
+        </standard>
     </processes>
     <inputs>
-        <input name="image_file" dest="snr.image_file"/>
-        <input name="repetition_time" dest="snr.repetition_time"/>
-        <input name="roi_size" dest="snr.roi_size"/>
+        <input name="image_file" dest="snr_fluct_and_drift.image_file"/>
+        <input name="repetition_time" dest="snr_fluct_and_drift.repetition_time"/>
+        <input name="roi_size" dest="snr_fluct_and_drift.roi_size"/>
         <input name="zalph" dest="spikes.zalph"/>
         <input name="time_axis" dest="spikes.time_axis"/>
         <input name="slice_axis" dest="spikes.slice_axis"/>
-        <input name="figure_titles" dest="snr.title"/>
+        <input name="figure_titles" dest="snr_fluct_and_drift.title"/>
     </inputs>
     <links>
+        <link src="brain_extraction._mask_file" dest="snr.mask_file"/>
         <link src="image_file" dest="spikes.image_file"/>
         <link src="figure_titles" dest="spikes.title" />
+        <link src="image_file" dest="snr.image_file"/>
+        <link src="image_file" dest="brain_extraction.in_file"/>
+        <link src="snr.snr_file" dest="aggregate_results.snr_score" />
+        <link src="snr_fluct_and_drift.fluctuation_drift_file" dest="aggregate_results.sfnr_score"/>
+        <link src="spikes.spikes_file" dest="aggregate_results.spike_score"/>
     </links>
     <outputs>
-        <output name="snap_fluctuation_drift" src="snr.snap_fluctuation_drift"/>
-        <output name="fluctuation_drift_file" src="snr.fluctuation_drift_file"/>
+        <output name="scores_file" src="aggregate_results.scores_file"/>
         <output name="snap_spikes" src="spikes.snap_spikes"/>
-        <output name="spikes_file" src="spikes.spikes_file"/>
+        <output name="scores_file" src="aggregate_results.scores_file"/>
     </outputs>
     <positions>
-        <position process="inputs" x="0" y="0"/>
-        <position process="snr" x="200" y="200"/>
-        <position process="spikes" x="400" y="-200"/>
-        <position process="outputs" x="800" y="0"/>
+        <position process="inputs" x="-766" y="224"/>
+        <position process="snr_fluct_and_drift" x="-452" y="-171"/>
+        <position process="spikes" x="-429" y="34"/>
+        <position process="outputs" x="526" y="-19"/>
+        <position process="brain_extraction" x="-106" y="44" />
+        <position process="snr" x="136" y="579" />
+        <position process="aggregate_results" x="340" y="194" />
     </positions>
-    <scale factor="1.0"/>
+    <scale factor="0.5"/>
 </pipeline>

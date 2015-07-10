@@ -74,8 +74,9 @@ def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
     for key, value in slices_to_correct.iteritems():
         slices_to_correct[key] = value.tolist()
 
+    out_dict = {"spikes": slices_to_correct}
     with open(spikes_file, "w") as json_data:
-        json.dump(slices_to_correct, json_data)
+        json.dump(out_dict, json_data)
 
     return snap_spikes, spikes_file
 
