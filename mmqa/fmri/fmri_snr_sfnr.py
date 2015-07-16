@@ -56,10 +56,12 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
 
     # Get background data
     array_mask = load_fmri_dataset(mask_file)
+
     # Dilation of the mask
     mask = ndim.binary_dilation(array_mask).astype(array_mask.dtype)
     # compute the standard deviation for each volume
-    stds = [numpy.std(numpy.multiply(array_image[:, :, :, x], mask))
+    stds = [numpy.std(numpy.ma.masked_array(array_image[:, :, :, x],
+                                            mask=mask))
             for x in range(array_image.shape[3])]
 
     # average over time
@@ -107,8 +109,8 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     # Compute the snr
     signal_array = get_fmri_signal(array)
     ssn_array = get_static_spatial_noise(array)
-    snr = get_spatial_noise_ratio(signal_array, ssn_array, array.shape[3],
-                                  roi_size=roi_size)
+    ssnr = get_spatial_noise_ratio(signal_array, ssn_array, array.shape[3],
+                                   roi_size=roi_size)
 
     # Compute a weisskoff analysis on the fluctuation
     fluctuations, theoretical_fluctuations = get_weisskoff_analysis(
@@ -119,7 +121,8 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
         output_directory, "snr_fluctuation_drift.json")
     results = {
         "drift": drift * 100,
-        "sfnr": 10 * numpy.log10(snr)
+        "ssnr": 10 * numpy.log10(ssnr),
+        "sfnr": 1. / fluctuation
     }
     with open(fluctuation_drift_file, "w") as json_data:
         json.dump(results, json_data)
@@ -130,7 +133,7 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     pdf = PdfPages(snap_fluctuation_drift)
     try:
         # Plot one figure per page
-        fig = time_series_figure(average_intensity, polynomial, drift, snr,
+        fig = time_series_figure(average_intensity, polynomial, drift, ssnr,
                                  title)
         pdf.savefig(fig)
         plt.close()
@@ -306,8 +309,8 @@ def get_static_spatial_noise(array):
 def get_spatial_noise_ratio(signal_array, ssn_array, nb_time_points,
                             roi_size=10):
     """ A central ROI is placed in the center of the static spatial noise
-    image. The SNR is the signal summary value divided by by the square root of the
-    variance summary value divided by the numbre of time points
+    image. The SNR is the signal summary value divided by by the square root
+    of the variance summary value divided by the numbre of time points
 
     SNR = (signal summary value)/sqrt((variance summary value)/#time points).
 

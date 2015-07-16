@@ -58,7 +58,7 @@ app = QtGui.QApplication(sys.argv)
 view1 = PipelineDevelopperView(pipeline)
 view1.show()
 app.exec_()
-del view1
+#del view1
 
 
 # Execute the pipeline in the configured study

@@ -13,11 +13,11 @@
         <standard name="snr" processing="False">
             <module>mmqa.fmri.fmri_snr_sfnr.signal_to_noise_ratio</module>
             <force name="output_directory" value="Undefined"/>
-            <force name="roi_size" value="20"/>
+            <force name="roi_size" value="10"/>
         </standard>
         <standard name="snr_fluct_and_drift" processing="False">
             <module>mmqa.fmri.fmri_snr_sfnr.snr_percent_fluctuation_and_drift</module>
-            <force name="roi_size" value="20"/>
+            <force name="roi_size" value="10"/>
             <force name="output_directory" value="Undefined"/>
         </standard>
         <standard name="spikes" processing="False">
@@ -54,7 +54,7 @@
     <outputs>
         <output name="scores_file" src="aggregate_results.scores_file"/>
         <output name="snap_spikes" src="spikes.snap_spikes"/>
-        <output name="scores_file" src="aggregate_results.scores_file"/>
+        <output name="snap_sfnr" src="snr_fluct_and_drift.snap_fluctuation_drift"/>
     </outputs>
     <positions>
         <position process="inputs" x="-766" y="224"/>
