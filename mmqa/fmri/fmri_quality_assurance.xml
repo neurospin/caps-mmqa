@@ -40,6 +40,7 @@
         <input name="time_axis" dest="spikes.time_axis"/>
         <input name="slice_axis" dest="spikes.slice_axis"/>
         <input name="figure_titles" dest="snr_fluct_and_drift.title"/>
+        <input name="exclude_volumes" dest="snr.exclude_volumes"/>
     </inputs>
     <links>
         <link src="brain_extraction._mask_file" dest="snr.mask_file"/>
@@ -50,6 +51,7 @@
         <link src="snr.snr_file" dest="aggregate_results.snr_score" />
         <link src="snr_fluct_and_drift.fluctuation_drift_file" dest="aggregate_results.sfnr_score"/>
         <link src="spikes.spikes_file" dest="aggregate_results.spike_score"/>
+        <link src="exclude_volumes" dest="snr_fluct_and_drift.exclude_volumes"/>
     </links>
     <outputs>
         <output name="scores_file" src="aggregate_results.scores_file"/>

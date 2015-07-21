@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 def signal_to_noise_ratio(image_file, mask_file, output_directory,
-                          roi_size=10):
+                          roi_size=10, exclude_volumes=[]):
     """
     Compute signal to noise ratio of a 4D image (from Velasco 2014)
     "It takes as 'signal' the average voxel intensity in all the ROIs
@@ -38,10 +38,24 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
             directory"/>
         <input name="roi_size" type="Int" desc="Size of the central ROI
             (optional)" optional="True"/>
+        <input name="exclude_volumes" type="List" desc="Exclude some temporal
+            positions (optional)" optional="True"/>
     </process>
     """
     # Get image data
     array_image = load_fmri_dataset(image_file)
+    if len(exclude_volumes) > 0:
+        out_index = 0
+        temp = numpy.zeros((array_image.shape[0],
+                            array_image.shape[1],
+                            array_image.shape[2],
+                            array_image.shape[3] - len(exclude_volumes)))
+        for index in range(array_image.shape[3]):
+            if index in exclude_volumes:
+                continue
+            temp[:, :, :, out_index] = array_image[:, :, :, index]
+            out_index += 1
+        array_image = numpy.asarray(temp)
 
     # Create a central roi
     center = numpy.round(numpy.asarray(array_image.shape) / 2)
@@ -79,7 +93,8 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
 
 
 def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
-                                      output_directory, title=None):
+                                      output_directory, title=None,
+                                      exclude_volumes=[]):
     """ Compute the fluctuation and drift on a central roi.
 
     <process>
@@ -96,25 +111,41 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
             folder."/>
         <input name="title" type="String" desc="The first part of the figure's
             title (optional)" optional="True"/>
+        <input name="exclude_volumes" type="List" desc="Exclude some temporal
+            positions (optional)" optional="True"/>
     </process>
     """
-    # Load the functional volume array
-    array = load_fmri_dataset(image_file)
+    # Get image data
+    array_image = load_fmri_dataset(image_file)
+    if len(exclude_volumes) > 0:
+        out_index = 0
+        temp = numpy.zeros((array_image.shape[0],
+                            array_image.shape[1],
+                            array_image.shape[2],
+                            array_image.shape[3] - len(exclude_volumes)))
+        for index in range(array_image.shape[3]):
+            if index in exclude_volumes:
+                continue
+            temp[:, :, :, out_index] = array_image[:, :, :, index]
+            out_index += 1
+        array_image = numpy.asarray(temp)
 
     # Compute the drift and fluctuation
     (average_intensity, polynomial, residuals, fluctuation,
-     drift) = get_snr_percent_fluctuation_and_drift(array, roi_size=roi_size)
+     drift) = get_snr_percent_fluctuation_and_drift(array_image,
+                                                    roi_size=roi_size)
     spectrum = get_residuals_spectrum(residuals, repetition_time * 10e-3)
 
     # Compute the snr
-    signal_array = get_fmri_signal(array)
-    ssn_array = get_static_spatial_noise(array)
-    ssnr = get_spatial_noise_ratio(signal_array, ssn_array, array.shape[3],
+    signal_array = get_fmri_signal(array_image)
+    ssn_array = get_static_spatial_noise(array_image)
+    ssnr = get_spatial_noise_ratio(signal_array, ssn_array,
+                                   array_image.shape[3],
                                    roi_size=roi_size)
 
     # Compute a weisskoff analysis on the fluctuation
     fluctuations, theoretical_fluctuations = get_weisskoff_analysis(
-        array, max_roi_size=roi_size)
+        array_image, max_roi_size=roi_size)
 
     # Save the result in a json
     fluctuation_drift_file = os.path.join(

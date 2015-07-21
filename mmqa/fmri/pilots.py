@@ -48,8 +48,8 @@ print "Done in {0} seconds.".format(datetime.datetime.now() - start_time)
 start_time = datetime.datetime.now()
 print "Start Parametrization", start_time
 localizer_dataset = get_sample_data("localizer")
-pipeline.image_file = localizer_dataset.fmri
-pipeline.repetition_time = localizer_dataset.TR
+pipeline.image_file = "/neurospin/eu-aims/PROCESS/LEAP_V01/367469520033/BOLD/task003/bold.nii.gz"
+pipeline.repetition_time = 2.0
 print "Done in {0} seconds.".format(datetime.datetime.now() - start_time)
 
 

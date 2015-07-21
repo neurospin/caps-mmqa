@@ -265,12 +265,12 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
 
     # Display detected spikes
     if output_fname is not None:
-        display_spikes(smd2, spikes, output_fname, title)
+        display_spikes(array, smd2, spikes, output_fname, title)
 
     return slices_to_correct, spikes
 
 
-def display_spikes(smd2, spikes, output_fname, title):
+def display_spikes(array, smd2, spikes, output_fname, title):
     """ Display the detected spikes.
 
     Parameters
@@ -295,7 +295,6 @@ def display_spikes(smd2, spikes, output_fname, title):
     # Plot information
     cnt = 1
     nb_of_timepoints = smd2.shape[0]
-    nb_of_plots = len(np.where(spikes.sum(axis=1) > 0)[0])
 
     # Go through all timepoints
     pdf = PdfPages(output_fname)
@@ -310,7 +309,7 @@ def display_spikes(smd2, spikes, output_fname, title):
                 plot.grid()
                 if title:
                     plt.title("{1}\nSpikes for slice {0}".format(cnt - 1,
-                                                                  title))
+                                                                 title))
                 else:
                     plt.title("Spikes for slice {0}".format(cnt - 1))
                 plot.plot(range(nb_of_timepoints), timepoint_smd2, "yo-")
@@ -322,7 +321,40 @@ def display_spikes(smd2, spikes, output_fname, title):
                 pdf.savefig(fig)
                 plt.close()
 
-            # Increment slice numbre
+                # display the slices, 12 images per page max
+                spike_index_nb = len(np.where(timepoint_spikes > 0)[0])
+                num_pages = spike_index_nb / 12
+                if spike_index_nb % 12 != 0:
+                    num_pages += 1
+
+
+                for pagenum in range(num_pages):
+                    col_nb = (spike_index_nb - 12 * pagenum) / 4
+                    if spike_index_nb % 4 != 0:
+                        col_nb += 1
+                    if col_nb > 3:
+                        col_nb = 3
+                    if pagenum == range(num_pages)[-1]:
+                        number_of_fig = (spike_index_nb - 12 * pagenum) % 13
+                    else:
+                        number_of_fig = 12
+                    fig = plt.figure()
+                    fig_cnt = 0
+                    for spike_index in np.where(timepoint_spikes > 0)[0][12 * pagenum: 12 * pagenum + number_of_fig]:
+                        fig_cnt += 1
+                        plot = fig.add_subplot(4, col_nb, fig_cnt)
+                        plt.title("Slice {0}, volume {1}".format(cnt - 1,
+                                                                 spike_index))
+                        plt.imshow(array[spike_index, cnt - 1, :, :],
+                                   cmap=mpl.cm.Greys_r)
+                        frame = plt.gca()
+                        frame.axes.get_xaxis().set_visible(False)
+                        frame.axes.get_yaxis().set_visible(False)
+                    fig.tight_layout()
+                    pdf.savefig(fig)
+                plt.close()
+
+            # Increment slice number
             cnt += 1
 
         # Close pdf file
