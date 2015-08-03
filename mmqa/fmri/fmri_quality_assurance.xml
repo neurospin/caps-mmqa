@@ -1,6 +1,6 @@
 <pipeline>
     <docstring>
-        Spike desction and SNR estimation.
+        Spike detection and SNR estimation.
     </docstring>
     <processes>
         <standard name="snr" processing="False">
@@ -41,5 +41,5 @@
         <position process="spikes" x="400" y="-200"/>
         <position process="outputs" x="800" y="0"/>
     </positions>
-    <scale factor="1.0"/> 
+    <scale factor="1.0"/>
 </pipeline>

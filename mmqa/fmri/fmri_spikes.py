@@ -308,15 +308,15 @@ def display_spikes(smd2, spikes, output_fname, title):
                 plot = fig.add_subplot(111)
                 plot.grid()
                 if title:
-                    plt.title("{1}\nSpikes near slice {0}".format(cnt - 1,
+                    plt.title("{1}\nSpikes for slice {0}".format(cnt - 1,
                                                                   title))
                 else:
-                    plt.title("Spikes near slice {0}".format(cnt - 1))
+                    plt.title("Spikes for slice {0}".format(cnt - 1))
                 plot.plot(range(nb_of_timepoints), timepoint_smd2, "yo-")
                 for spike_index in np.where(timepoint_spikes > 0)[0]:
                     plot.plot((spike_index, spike_index),
                               (0, timepoint_smd2[spike_index]), "r")
-                plot.axes.set_xlabel("Slices")
+                plot.axes.set_xlabel("Volumes")
                 plot.axes.set_ylabel("Slice mean squared difference")
                 pdf.savefig(fig)
                 plt.close()
