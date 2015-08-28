@@ -38,21 +38,23 @@ def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
     ------
     ValueError: if the image dimension is different than 4.
 
-    <process>
-        <return name="snap_spikes" type="File" desc="A snap with the dectected
-            spikes."/>
-        <return name="spikes_file" type="File" desc="The detected spikes array."/>
+    <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
         <input name="output_directory" type="Directory" desc="The destination
             folder."/>
-        <input name="zalph" type="Float" desc="Cut off for the sum of square."/>
+        <input name="zalph" type="Float" desc="Cut off for the sum of
+            square."/>
         <input name="time_axis" type="Int" desc="Axis of the input array that
             varies over time. The default is the last axis."/>
         <input name="slice_axis" type="Int" desc="Axis of the array that
             varies over image slice. The default is the last non-time axis."/>
         <input name="title" type="String" desc="The first part of the figures'
             title (optional)" optional="True"/>
-    </process>
+        <output name="snap_spikes" type="File" desc="A snap with the dectected
+            spikes."/>
+        <output name="spikes_file" type="File" desc="The detected spikes
+            array."/>
+    </unit>
     """
     # Load the image and get the associated numpy array
     image = nibabel.load(image_file)
@@ -319,7 +321,7 @@ def display_spikes(array, smd2, spikes, output_fname, title):
                 plot.axes.set_xlabel("Volumes")
                 plot.axes.set_ylabel("Slice mean squared difference")
                 pdf.savefig(fig)
-                plt.close()
+                plt.close(fig)
 
                 # display the slices, 12 images per page max
                 spike_index_nb = len(np.where(timepoint_spikes > 0)[0])
@@ -352,7 +354,8 @@ def display_spikes(array, smd2, spikes, output_fname, title):
                         frame.axes.get_yaxis().set_visible(False)
                     fig.tight_layout()
                     pdf.savefig(fig)
-                plt.close()
+                    plt.clf()
+                    plt.close(fig)
 
             # Increment slice number
             cnt += 1

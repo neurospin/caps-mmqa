@@ -25,10 +25,7 @@ def time_serie_mq(image_file, realignment_parameters, package,
     ValueError: if the image dimension is different than 4 or the realignement
     parameters file is not valid.
 
-    <process>
-        <return name="snap_spikes" type="File" desc="A snap with the dectected
-            spikes."/>
-        <return name="spikes_file" type="File" desc="The detected spikes array."/>
+    <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
         <input name="spm_realignment_parameters" type="File" desc="Estimated
             spm translation and rotation parameters during the realignment."/>
@@ -40,7 +37,11 @@ def time_serie_mq(image_file, realignment_parameters, package,
             varies over time. The default is the last axis."/>
         <input name="slice_axis" type="Int" desc="Axis of the array that
             varies over image slice. The default is the last non-time axis."/>
-    </process>
+        <output name="snap_spikes" type="File" desc="A snap with the dectected
+            spikes."/>
+        <output name="spikes_file" type="File" desc="The detected spikes
+            array."/>
+    </unit>
     """
     # Load the image and get the associated numpy array
     image = nibabel.load(image_file)
@@ -137,7 +138,7 @@ def deformation_field(rigid, shape, affine):
     for item in mesh:
         item.shape += (1, )
     mesh = numpy.concatenate(mesh , axis=3)
-            
+
     # Apply the rigid transform
     points = field_dot(affine[:3, :3], mesh)
     points = field_add(points, affine[:3, 3])
@@ -278,5 +279,5 @@ if __name__ == "__main__":
     localizer_dataset = get_sample_data("localizer")
     time_serie_mq(localizer_dataset.fmri, localizer_dataset.mouvment_parameters,
                   "SPM", "/volatile/nsap/catalogue/quality_assurance/",
-                  time_axis=-1, slice_axis=-2)  
-                     
+                  time_axis=-1, slice_axis=-2)
+
