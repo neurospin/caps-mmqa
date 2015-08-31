@@ -226,10 +226,6 @@ def get_rigid_matrix(rigid_params, package):
     # Get the rotation part from Euler description
     # cf Bernad Bayle
     R = numpy.eye(3)
-    rotfunc1 = lambda x: numpy.array([[numpy.cos(x), -numpy.sin(x)],
-                                      [numpy.sin(x), numpy.cos(x)]])
-    rotfunc2 = lambda x: numpy.array([[numpy.cos(x), -numpy.sin(x)],
-                                      [numpy.sin(x), numpy.cos(x)]])
     Rx = numpy.eye(3)
     Rx[1:3, 1:3] = rotfunc1(rigid_params[5])
     Ry = numpy.eye(3)
@@ -244,6 +240,16 @@ def get_rigid_matrix(rigid_params, package):
     rigid[:3, 3] = T
 
     return rigid
+
+
+def rotfunc1(x):
+    return numpy.array([[numpy.cos(x), -numpy.sin(x)],
+                       [numpy.sin(x), numpy.cos(x)]])
+
+
+def rotfunc2(x):
+    return numpy.array([[numpy.cos(x), -numpy.sin(x)],
+                       [numpy.sin(x), numpy.cos(x)]])
 
 
 if __name__ == "__main__":

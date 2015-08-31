@@ -33,7 +33,7 @@ CAPS-MMQA
 
 [mmqa] Multi-Modal Quality Assurance.
 A pure python tool that defines processing pipelines to compute Quality
-Assurance scores such as Signal-Noise Ratios and Spike Detection. The pipeline 
+Assurance scores such as Signal-Noise Ratios and Spike Detection. The pipeline
 are described in XML and interpreted by a pipeline engine.
 """
 
