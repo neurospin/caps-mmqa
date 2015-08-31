@@ -191,8 +191,10 @@ def display_slice_distributions(gaussians, bins, output_fname):
             plt.hist(dataset["dist"], bins, normed=1, facecolor="green",
                      alpha=0.5)
             plot.plot((dataset["mean"], dataset["mean"]), (0, 1), "r")
-            plot.plot((dataset["bounds"][0], dataset["bounds"][0]), (0, 1), "b")
-            plot.plot((dataset["bounds"][1], dataset["bounds"][1]), (0, 1), "b")
+            plot.plot((dataset["bounds"][0], dataset["bounds"][0]),
+                      (0, 1), "b")
+            plot.plot((dataset["bounds"][1], dataset["bounds"][1]),
+                      (0, 1), "b")
             plot.axes.set_xlabel("Smarts")
             plot.axes.set_ylabel("Probability")
             pdf.savefig(fig)
@@ -242,7 +244,8 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
                 "axis is '%s'", array.shape, time_axis, slice_axis)
 
     # Time-point to time-point differences over and slices
-    logger.info("Computing time-point to time-point differences over slices...")
+    logger.info("Computing time-point to time-point differences over "
+                "slices...")
     smd2 = time_slice_diffs(array)
     logger.info("Metric smd2 shape is '%s', ie. (number of timepoints - 1, "
                 "number of slices).", smd2.shape)
@@ -329,7 +332,6 @@ def display_spikes(array, smd2, spikes, output_fname, title):
                 if spike_index_nb % 12 != 0:
                     num_pages += 1
 
-
                 for pagenum in range(num_pages):
                     col_nb = (spike_index_nb - 12 * pagenum) / 4
                     if spike_index_nb % 4 != 0:
@@ -342,7 +344,8 @@ def display_spikes(array, smd2, spikes, output_fname, title):
                         number_of_fig = 12
                     fig = plt.figure()
                     fig_cnt = 0
-                    for spike_index in np.where(timepoint_spikes > 0)[0][12 * pagenum: 12 * pagenum + number_of_fig]:
+                    for spike_index in np.where(timepoint_spikes > 0)[
+                            0][12 * pagenum: 12 * pagenum + number_of_fig]:
                         fig_cnt += 1
                         plot = fig.add_subplot(4, col_nb, fig_cnt)
                         plt.title("Slice {0}, volume {1}".format(cnt - 1,
@@ -402,19 +405,21 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
     for slice_index in range(shape[1]):
 
         # Information splitter
-        logger.info("{0} Computing slice '{1}'...".format("-" * 10, slice_index))
+        logger.info("{0} Computing slice '{1}'...".format(
+            "-" * 10, slice_index))
 
         # Compute distribution mean and dispertion
         loc = np.median(smd2[:, slice_index])
         scale = median_absolute_deviation(smd2[:, slice_index])
 
         # Detect the outliers
-        spikes[:, slice_index] = (smd2[:, slice_index] >  loc + zalph * scale)
-        lower_spikes[:, slice_index] = (smd2[:, slice_index] >  loc +
+        spikes[:, slice_index] = (smd2[:, slice_index] > loc + zalph * scale)
+        lower_spikes[:, slice_index] = (smd2[:, slice_index] > loc +
                                         lower_zalph * scale)
         nb_spikes = spikes[:, slice_index].sum()
-        logger.info("Found '%s' spike(s) at slice '%s' between timepoints '%s' "
-                    ". The lower spikes are '%s'.", nb_spikes, slice_index,
+        logger.info("Found '%s' spike(s) at slice '%s' between timepoints "
+                    "'%s' . The lower spikes are '%s'.", nb_spikes,
+                    slice_index,
                     spikes[:, slice_index], lower_spikes[:, slice_index])
 
     return spikes
@@ -453,7 +458,7 @@ def detect_pattern(array, pattern, ppos=None, dpos=0):
 
     # Check the input parameters
     if pattern.ndim != 1:
-         raise ValueError("Invalid pattern '{0}'.".format(pattern))
+        raise ValueError("Invalid pattern '{0}'.".format(pattern))
 
     # Pattern instersection
     nb_of_hits = shape[0] - pshape[0] + 1
@@ -467,8 +472,8 @@ def detect_pattern(array, pattern, ppos=None, dpos=0):
 
 def final_detection(spikes):
     """ This function takes an array with zeros or ones, look at when two
-    "ones" follow each other in the time direction (first dimension), and return
-    an array of ones in these cases. These are the slices that we can
+    "ones" follow each other in the time direction (first dimension), and
+    return an array of ones in these cases. These are the slices that we can
     potentially correct if they are isolated.
 
     Parameters
@@ -513,14 +518,7 @@ if __name__ == "__main__":
         array, time_axis=-1, slice_axis=-2, sigma=2,
         output_fname="/volatile/nsap/catalogue/quality_assurance/spikes.pdf")
 
-    print stop
-
     slices_to_correct, _ = spike_detector(
         localizer_dataset.fmri, zalph=5., time_axis=-1, slice_axis=-2,
         output_fname="/volatile/nsap/catalogue/quality_assurance/spikes.pdf")
     print slices_to_correct
-
-
-
-
-

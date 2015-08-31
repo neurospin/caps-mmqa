@@ -11,9 +11,6 @@
 import numpy
 import nibabel
 
-# CAPS import
-from stats_utils import format_time_serie
-
 
 def time_serie_mq(image_file, realignment_parameters, package,
                   output_directory, time_axis=-1, slice_axis=-2):
@@ -137,7 +134,7 @@ def deformation_field(rigid, shape, affine):
     mesh = numpy.meshgrid(x, y, z)
     for item in mesh:
         item.shape += (1, )
-    mesh = numpy.concatenate(mesh , axis=3)
+    mesh = numpy.concatenate(mesh, axis=3)
 
     # Apply the rigid transform
     points = field_dot(affine[:3, :3], mesh)
@@ -217,7 +214,7 @@ def get_rigid_matrix(rigid_params, package):
     """
     # Check if a valide package has been specified
     if package not in ["FSL", "SPM"]:
-        raise ValueError("Uknown package '{0}'.".format(srcpckg))
+        raise ValueError("Uknown package '{0}'.".format(package))
 
     # FSL reorganization
     if package == "FSL":
@@ -256,10 +253,10 @@ if __name__ == "__main__":
     trans = [0, 0, 0]
     rigid = numpy.array([
         [numpy.cos(alpha), -numpy.sin(alpha), 0, trans[0]],
-        [numpy.sin(alpha), numpy.cos(alpha),0, trans[1]],
+        [numpy.sin(alpha), numpy.cos(alpha), 0, trans[1]],
         [0, 0, 1, trans[2]],
         [0, 0, 0, 1]
-    ],dtype=numpy.single)
+    ], dtype=numpy.single)
 
     # Compute the dispalcement
     dispalcement = deformation_field(rigid, (2, 2, 2), numpy.eye(4))
@@ -269,7 +266,6 @@ if __name__ == "__main__":
     mq = movement_quantity(rigid, (2, 2, 2), numpy.eye(4), "stat")
     print mq
 
-
     # Real data test
     from caps.toy_datasets import get_sample_data
     import logging
@@ -277,7 +273,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     localizer_dataset = get_sample_data("localizer")
-    time_serie_mq(localizer_dataset.fmri, localizer_dataset.mouvment_parameters,
+    time_serie_mq(localizer_dataset.fmri,
+                  localizer_dataset.mouvment_parameters,
                   "SPM", "/volatile/nsap/catalogue/quality_assurance/",
                   time_axis=-1, slice_axis=-2)
-
