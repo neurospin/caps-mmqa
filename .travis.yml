@@ -17,6 +17,9 @@ install:
     - source activate testenv
     - conda install --yes numpy scipy networkx dateutil
     - sudo apt-get install mricron
+    - sudo apt-get update
+    - sudo apt-get install neurodebian-keyring
+    - sudo apt-get update
     - sudo apt-get install fsl
     - git clone https://github.com/neurospin/caps-mmutils.git /tmp/caps-mmutils
     - export PYTHONPATH=$PYTHONPATH:/tmp/caps-mmutils
