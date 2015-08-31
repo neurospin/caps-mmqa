@@ -62,7 +62,7 @@ class TestFmriQA(unittest.TestCase):
             app.exec_()
 
         # Execute the pipeline in the configured study
-        study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
+        # study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
 
 
 def test():
