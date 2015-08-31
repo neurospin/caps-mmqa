@@ -25,7 +25,7 @@ CLASSIFIERS = ["Development Status :: 5 - Production/Stable",
                "Topic :: Utilities"]
 
 # Project descriptions
-description = "CAPS-DCMIO"
+description = "CAPS-MMQA"
 long_description = """
 =========
 CAPS-MMQA
@@ -50,11 +50,11 @@ MAINTAINER = "Antoine Grigis"
 MAINTAINER_EMAIL = "antoine.grigis@cea.fr"
 DESCRIPTION = description
 LONG_DESCRIPTION = long_description
-URL = "https://github.com/neurospin/caps-dcmio.git"
-DOWNLOAD_URL = "https://pypi.python.org/pypi/caps-dcmio/" + __version__
+URL = "https://github.com/neurospin/caps-mmqa.git"
+DOWNLOAD_URL = "https://pypi.python.org/pypi/caps-mmqa/" + __version__
 LICENSE = "CeCILL-B"
 CLASSIFIERS = CLASSIFIERS
-AUTHOR = "CAPS-DCMIO developers"
+AUTHOR = "CAPS-MMQA developers"
 AUTHOR_EMAIL = "antoine.grigis@cea.fr"
 PLATFORMS = "OS Independent"
 ISRELEASE = True

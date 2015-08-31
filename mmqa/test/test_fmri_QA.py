@@ -18,7 +18,7 @@ from capsul.study_config.study_config import StudyConfig
 from capsul.process.loader import get_process_instance
 
 # Mmutils import
-from mmutils.toy_datasets import get_sample_data
+# from mmutils.toy_datasets import get_sample_data
 
 
 class TestFmriQA(unittest.TestCase):
@@ -26,7 +26,6 @@ class TestFmriQA(unittest.TestCase):
     """
     def setUp(self):
         self.outdir = tempfile.mkdtemp()
-        # self.outdir = "/volatile/nsap/catalogue/dicom_convert/"
         self.pipeline_name = "mmqa.fmri.fmri_quality_assurance.xml"
 
     def test_simple_run(self):
@@ -38,6 +37,7 @@ class TestFmriQA(unittest.TestCase):
             use_smart_caching=True,
             number_of_cpus=1,
             generate_logging=True,
+            use_fsl=True,
             output_directory=self.outdir,
             use_scheduler=True)
 
@@ -45,9 +45,12 @@ class TestFmriQA(unittest.TestCase):
         pipeline = get_process_instance(self.pipeline_name)
 
         # Set pipeline input parameters
-        localizer_dataset = get_sample_data("localizer")
-        pipeline.image_file = localizer_dataset.fmri
-        pipeline.repetition_time = localizer_dataset.TR
+        # localizer_dataset = get_sample_data("localizer")
+        pipeline.image_file = os.path.join(os.path.dirname(
+                                               os.path.realpath(__file__)),
+                                           "raw_fMRI_raw_bold.nii.gz")
+        pipeline.repetition_time = 2400.
+        pipeline.score_file = os.path.join(self.outdir, "scores.json")
 
         # View pipeline
         if 0:
