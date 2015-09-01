@@ -46,9 +46,9 @@ class TestFmriQA(unittest.TestCase):
 
         # Set pipeline input parameters
         # localizer_dataset = get_sample_data("localizer")
-        pipeline.image_file = os.path.join(os.path.dirname(
-                                               os.path.realpath(__file__)),
-                                           "raw_fMRI_raw_bold.nii.gz")
+        pipeline.image_file = os.path.join(os.path.dirname(os.path.realpath(
+            __file__)),
+            "raw_fMRI_raw_bold.nii.gz")
         pipeline.repetition_time = 2400.
         pipeline.score_file = os.path.join(self.outdir, "scores.json")
 
@@ -62,7 +62,7 @@ class TestFmriQA(unittest.TestCase):
             app.exec_()
 
         # Execute the pipeline in the configured study
-        # study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
+        study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
 
 
 def test():
