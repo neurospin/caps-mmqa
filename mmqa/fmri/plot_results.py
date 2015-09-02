@@ -17,21 +17,23 @@ def plot_results(file_list, selection, output_directory, groups=None,
     """
     Plot the results of a QA process.
 
-    <process>
-        <return name="output_dir" type="Directory" desc="The outpout
-            directory"/>
-        <input name="file_list" type="List" desc="The list of the result's
-            file paths"/>
-        <input name="selection" type="List" desc="The list of scores to
-            be plotted as they are defined in subject-related jsons"/>
+    <unit>
+        <input name="file_list" type="List" content="File" desc="The list of
+            the result's file paths"/>
+        <input name="selection" type="List" content="Str" desc="The list of
+            scores to be plotted as they are defined in subject-related
+            jsons"/>
         <input name="output_directory" type="Directory" desc="The directory
         that will contain the images and the aggregated csv file"/>
-        <input name="groups" type="List" desc="The list of group names
-        corresponding to the filepath in file_list (same order, same length)
+        <input name="groups" type="List" content="Str" desc="The list of group
+            names corresponding to the filepath in file_list (same order,
+            same length)
         (optional)" optional="True"/>
         <input name="n_bins" type="Int" desc="Number of bins of the histograms
         (optional)" optional="True"/>
-    </process>
+        <output name="output_dir" type="Directory" desc="The outpout
+            directory"/>
+    </unit>
 
     """
     # create a batch file of results
@@ -41,7 +43,8 @@ def plot_results(file_list, selection, output_directory, groups=None,
     # parce the aggregated result files and compute images
     plot_images(batch_file, selection, output_directory, n_bins=n_bins)
 
-    return output_directory
+    output_dir = output_directory
+    return output_dir
 
 
 def aggregate_results(file_list, out_file, groups=None):

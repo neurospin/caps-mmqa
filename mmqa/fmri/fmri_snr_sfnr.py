@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 def signal_to_noise_ratio(image_file, mask_file, output_directory,
-                          roi_size=10):
+                          exclude_volumes, roi_size):
     """
     Compute signal to noise ratio of a 4D image (from Velasco 2014)
     "It takes as 'signal' the average voxel intensity in all the ROIs
@@ -30,18 +30,32 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     standard deviation (acress space) of the signal in the ROIs defined in
     the background, and then averages across time.
 
-    <process>
-        <return name="snr_file" type="File" desc="A score in a json file"/>
+    <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
         <input name="mask_file" type="File" desc="The BET mask"/>
         <input name="output_directory" type="Directory" desc="The output
             directory"/>
         <input name="roi_size" type="Int" desc="Size of the central ROI
             (optional)" optional="True"/>
-    </process>
+        <input name="exclude_volumes" type="List" content="Int" desc="Exclude
+            some temporal positions (optional)" optional="True"/>
+        <output name="snr_file" type="File" desc="A score in a json file"/>
+    </unit>
     """
     # Get image data
     array_image = load_fmri_dataset(image_file)
+    if len(exclude_volumes) > 0:
+        out_index = 0
+        temp = numpy.zeros((array_image.shape[0],
+                            array_image.shape[1],
+                            array_image.shape[2],
+                            array_image.shape[3] - len(exclude_volumes)))
+        for index in range(array_image.shape[3]):
+            if index in exclude_volumes:
+                continue
+            temp[:, :, :, out_index] = array_image[:, :, :, index]
+            out_index += 1
+        array_image = numpy.asarray(temp)
 
     # Create a central roi
     center = numpy.round(numpy.asarray(array_image.shape) / 2)
@@ -58,7 +72,8 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     array_mask = load_fmri_dataset(mask_file)
 
     # Dilation of the mask
-    mask = ndim.binary_dilation(array_mask).astype(array_mask.dtype)
+    mask = ndim.binary_dilation(array_mask, iterations=3).astype(
+        array_mask.dtype)
     # compute the standard deviation for each volume
     stds = [numpy.std(numpy.ma.masked_array(array_image[:, :, :, x],
                                             mask=mask))
@@ -75,18 +90,17 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     with open(os.path.join(output_directory, "snr.json"), "w") as _file:
         json.dump(results, _file)
 
-    return os.path.join(output_directory, "snr.json")
+    snr_file = os.path.join(output_directory, "snr.json")
+
+    return snr_file
 
 
 def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
-                                      output_directory, title=None):
+                                      output_directory, title=None,
+                                      exclude_volumes=[]):
     """ Compute the fluctuation and drift on a central roi.
 
-    <process>
-        <return name="snap_fluctuation_drift" type="File" desc="A functional
-        volume."/>
-        <return name="fluctuation_drift_file" type="File" desc="A score
-        in a json file."/>
+    <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
         <input name="repetition_time" type="Float" desc="The fMRI sequence
             repetition time (in seconds)."/>
@@ -96,25 +110,45 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
             folder."/>
         <input name="title" type="String" desc="The first part of the figure's
             title (optional)" optional="True"/>
-    </process>
+        <input name="exclude_volumes" type="List" content="Int" desc="Exclude
+            some temporal positions (optional)" optional="True"/>
+        <output name="snap_fluctuation_drift" type="File" desc="A functional
+        volume."/>
+        <output name="fluctuation_drift_file" type="File" desc="A score
+        in a json file."/>
+    </unit>
     """
-    # Load the functional volume array
-    array = load_fmri_dataset(image_file)
+    # Get image data
+    array_image = load_fmri_dataset(image_file)
+    if len(exclude_volumes) > 0:
+        out_index = 0
+        temp = numpy.zeros((array_image.shape[0],
+                            array_image.shape[1],
+                            array_image.shape[2],
+                            array_image.shape[3] - len(exclude_volumes)))
+        for index in range(array_image.shape[3]):
+            if index in exclude_volumes:
+                continue
+            temp[:, :, :, out_index] = array_image[:, :, :, index]
+            out_index += 1
+        array_image = numpy.asarray(temp)
 
     # Compute the drift and fluctuation
     (average_intensity, polynomial, residuals, fluctuation,
-     drift) = get_snr_percent_fluctuation_and_drift(array, roi_size=roi_size)
+     drift) = get_snr_percent_fluctuation_and_drift(array_image,
+                                                    roi_size=roi_size)
     spectrum = get_residuals_spectrum(residuals, repetition_time * 10e-3)
 
     # Compute the snr
-    signal_array = get_fmri_signal(array)
-    ssn_array = get_static_spatial_noise(array)
-    ssnr = get_spatial_noise_ratio(signal_array, ssn_array, array.shape[3],
+    signal_array = get_fmri_signal(array_image)
+    ssn_array = get_static_spatial_noise(array_image)
+    ssnr = get_spatial_noise_ratio(signal_array, ssn_array,
+                                   array_image.shape[3],
                                    roi_size=roi_size)
 
     # Compute a weisskoff analysis on the fluctuation
     fluctuations, theoretical_fluctuations = get_weisskoff_analysis(
-        array, max_roi_size=roi_size)
+        array_image, max_roi_size=roi_size)
 
     # Save the result in a json
     fluctuation_drift_file = os.path.join(
@@ -136,13 +170,13 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
         fig = time_series_figure(average_intensity, polynomial, drift, ssnr,
                                  title)
         pdf.savefig(fig)
-        plt.close()
+        plt.close(fig)
         fig = spectrum_figure(spectrum, title)
         pdf.savefig(fig)
-        plt.close()
+        plt.close(fig)
         fig = weisskoff_figure(fluctuations, theoretical_fluctuations, title)
         pdf.savefig(fig)
-        plt.close()
+        plt.close(fig)
 
         # Close the pdf
         pdf.close()
@@ -409,7 +443,6 @@ def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
     # of the residual variance of each voxel after the detrending
     residuals = average_intensity - average_intensity_model
     fluctuation = numpy.std(residuals) / mean_signal_intensity
-
     # Compute the drift
     drift = (average_intensity_model.max() -
              average_intensity_model.min()) / mean_signal_intensity
@@ -537,20 +570,20 @@ def time_series_figure(time_series, polynomial, drift, snr, title=None):
     return figure
 
 
-def aggregate_results(snr_score, sfnr_score, spike_score, output_directory):
+def aggregate_results(snr_score, sfnr_score, spike_score, output_file):
     """
     This function takes the dictionaries outputed by other processed and
     merge them into one general result json file
     NOTE: if 2 files share the same key, a value will be overwritten !
-    <process>
-        <return name="scores_file" type="File" desc="All scores in a
-            json file"/>
+    <unit>
         <input name="snr_score" type="File" desc="the snr json file"/>
         <input name="sfnr_score" type="File" desc="the sfnr json file"/>
         <input name="spike_score" type="File" desc="the spike json file"/>
-        <input name="output_directory" type="Directory" desc="The output
-            directory"/>
-    </process>
+        <input name="output_file" type="File" desc="The output
+            file containing all the scores"/>
+        <output name="scores_file" type="File" desc="All scores in a
+            json file"/>
+    </unit>
     """
 
     out = {}
@@ -564,7 +597,8 @@ def aggregate_results(snr_score, sfnr_score, spike_score, output_directory):
         temp = json.load(_file)
     out.update(temp)
 
-    with open(os.path.join(output_directory, "QA_scores.json"), "w") as _file:
+    with open(output_file, "w") as _file:
         json.dump(out, _file)
 
-    return os.path.join(output_directory, "QA_scores.json")
+    scores_file = output_file
+    return scores_file

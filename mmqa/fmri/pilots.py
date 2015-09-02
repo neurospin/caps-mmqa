@@ -9,8 +9,6 @@
 
 # System import
 import sys
-import unittest
-import os
 from PySide import QtGui
 import logging
 import datetime
@@ -57,7 +55,6 @@ app = QtGui.QApplication(sys.argv)
 view1 = PipelineDevelopperView(pipeline)
 view1.show()
 app.exec_()
-
 
 # Execute the pipeline in the configured study
 study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
