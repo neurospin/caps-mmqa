@@ -37,7 +37,6 @@ class TestFmriQA(unittest.TestCase):
             use_smart_caching=True,
             number_of_cpus=1,
             generate_logging=True,
-            use_fsl=True,
             output_directory=self.outdir,
             use_scheduler=True)
 
@@ -63,6 +62,9 @@ class TestFmriQA(unittest.TestCase):
 
         # Execute the pipeline in the configured study
         study_config.run(pipeline, executer_qc_nodes=True, verbose=1)
+
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.outdir, "scores.json")))
 
 
 def test():
