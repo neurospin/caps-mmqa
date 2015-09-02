@@ -32,7 +32,6 @@ print "Start Configuration", start_time
 study_config = StudyConfig(
     modules=["SmartCachingConfig"],
     use_smart_caching=True,
-    use_fsl=True,
     output_directory="/volatile/nsap/catalogue/quality_assurance/")
 print "Done in {0} seconds".format(datetime.datetime.now() - start_time)
 
@@ -58,7 +57,6 @@ app = QtGui.QApplication(sys.argv)
 view1 = PipelineDevelopperView(pipeline)
 view1.show()
 app.exec_()
-#del view1
 
 
 # Execute the pipeline in the configured study
