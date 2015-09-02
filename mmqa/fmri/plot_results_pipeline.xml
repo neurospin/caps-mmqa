@@ -1,26 +1,23 @@
 <pipeline>
     <docstring>
-        Aggregate QA process results and plot QA scores
+        Aggregate QA unit results and plot QA scores
     </docstring>
-    <processes>
-        <standard name="plot_results" processing="False">
+    <units>
+        <unit name="plot_results">
             <module>mmqa.fmri.plot_results.plot_results</module>
-            <force name="output_directory" value="Undefined"/>
-        </standard>
-    </processes>
-    <inputs>
-        <input name="score_to_plot" dest="plot_results.selection"/>
-        <input name="n_bins" dest="plot_results.n_bins" />
-        <input name="group_list" dest="plot_results.groups"/>
-        <input name="file_list" dest="plot_results.file_list"/>
-    </inputs>
-    <outputs>
-        <output name="output_directory" src="plot_results.output_dir"/>
-    </outputs>
+        </unit>
+    </units>
+    <links>
+        <link source="score_to_plot" destination="plot_results.selection"/>
+        <link source="n_bins" destination="plot_results.n_bins" />
+        <link source="group_list" destination="plot_results.groups"/>
+        <link source="file_list" destination="plot_results.file_list"/>
+        <link source="plot_results.output_dir" destination="output_directory"/>
+    </links>
     <positions>
-        <position process="inputs" x="-26" y="199"/>
-        <position process="plot_results" x="199" y="199"/>
-        <position process="outputs" x="371" y="300"/>
+        <position unit="inputs" x="-26" y="199"/>
+        <position unit="plot_results" x="199" y="199"/>
+        <position unit="outputs" x="371" y="300"/>
     </positions>
     <scale factor="1.0"/>
 </pipeline>
