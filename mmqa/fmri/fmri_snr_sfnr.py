@@ -45,17 +45,9 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     # Get image data
     array_image = load_fmri_dataset(image_file)
     if len(exclude_volumes) > 0:
-        out_index = 0
-        temp = numpy.zeros((array_image.shape[0],
-                            array_image.shape[1],
-                            array_image.shape[2],
-                            array_image.shape[3] - len(exclude_volumes)))
-        for index in range(array_image.shape[3]):
-            if index in exclude_volumes:
-                continue
-            temp[:, :, :, out_index] = array_image[:, :, :, index]
-            out_index += 1
-        array_image = numpy.asarray(temp)
+        to_keep = sorted(set(range(
+            array_image.shape[3])).difference(exclude_volumes))
+        array_image = array_image[:, :, :, to_keep]
 
     # Create a central roi
     center = numpy.round(numpy.asarray(array_image.shape) / 2)
@@ -121,17 +113,9 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     # Get image data
     array_image = load_fmri_dataset(image_file)
     if len(exclude_volumes) > 0:
-        out_index = 0
-        temp = numpy.zeros((array_image.shape[0],
-                            array_image.shape[1],
-                            array_image.shape[2],
-                            array_image.shape[3] - len(exclude_volumes)))
-        for index in range(array_image.shape[3]):
-            if index in exclude_volumes:
-                continue
-            temp[:, :, :, out_index] = array_image[:, :, :, index]
-            out_index += 1
-        array_image = numpy.asarray(temp)
+        to_keep = sorted(set(range(
+            array_image.shape[3])).difference(exclude_volumes))
+        array_image = array_image[:, :, :, to_keep]
 
     # Compute the drift and fluctuation
     (average_intensity, polynomial, residuals, fluctuation,

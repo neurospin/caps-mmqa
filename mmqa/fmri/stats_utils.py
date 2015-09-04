@@ -70,64 +70,6 @@ def format_time_serie(array, time_axis=-1, slice_axis=-2):
     return array
 
 
-def format_time_serie_2(array, time_axis=-1, slice_axis=-2):
-    """ Format time serie.
-
-    For convenience, set the time axis to -1 and the slice axis to -2.
-
-    Parameters
-    ----------
-    array: array_like
-        array representing the time serie.
-    time_axis: int (optional, default -1)
-        axis of the input array that varies over time. The default is the last
-        axis.
-    slice_axis: int (optional default -2)
-        axis of the array that varies over image slice. The default is the last
-        non-time axis.
-
-    Returns
-    -------
-    roll_array: array
-        array representing the time serie where the time axis is -1 and the
-        slice axis is -2.
-
-    Raises
-    ------
-    ValueError: if `time_axis` refers to same axis as `slice_axis` or if
-                a non valid axis is specified.
-    """
-    # Convert array-like object
-    array = np.asarray(array)
-
-    # Convert negative index
-    ndim = array.ndim
-    if time_axis < 0:
-        time_axis += ndim
-    if slice_axis < 0:
-        slice_axis += ndim
-
-    # Check the input specified axis parameters
-    if time_axis == slice_axis:
-        raise ValueError("Time axis refers to same axis as slice axis.")
-    if time_axis < 0 or time_axis >= ndim:
-        raise ValueError("Invalid time axis '{0}'.".format(time_axis))
-    if slice_axis < 0 or slice_axis >= ndim:
-        raise ValueError("Invalid slice axis '{0}'.".format(slice_axis))
-
-    # For convenience roll time axis to 0
-    array = np.rollaxis(array, time_axis, 0)
-
-    # We may have changed the position of slice_axis
-    if time_axis > slice_axis:
-        slice_axis += 1
-
-    # For convenience roll slice axis to 1
-    array = np.rollaxis(array, slice_axis, 1)
-
-    return array
-
-
 def time_slice_diffs(array):
     """ Time-point to time-point differences over volumes and slices.
 
@@ -151,7 +93,6 @@ def time_slice_diffs(array):
     # shapes of things
     nb_of_timepoints = array.shape[0]
     nb_of_slices = array.shape[1]
-    slice_shape = array.shape[1:]
 
     # Go through all timepoints - 1: squared slice difference
     smd2 = np.empty((nb_of_timepoints - 1, nb_of_slices))
