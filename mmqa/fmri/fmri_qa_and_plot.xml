@@ -1,0 +1,43 @@
+<pipeline>
+    <docstring>
+        Spike detection and SNR estimation (iterative pipeline).
+    </docstring>
+    <units>
+        <unit name="fmri_quality_assurance">
+            <module>mmqa.fmri.fmri_quality_assurance.xml</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+        <unit name="plot_results">
+            <module>mmqa.fmri.plot_results.plot_results</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+    </units>
+    <links>
+        <!-- INPUTS -->
+        <link source="image_file" destination="fmri_quality_assurance.image_file"/>
+        <link source="exclude_volumes" destination="fmri_quality_assurance.exclude_volumes"/>
+        <link source="figure_titles" destination="fmri_quality_assurance.figure_titles"/>
+        <link source="repetition_time" destination="fmri_quality_assurance.repetition_time"/>
+        <link source="time_axis" destination="fmri_quality_assurance.time_axis"/>
+        <link source="roi_size" destination="fmri_quality_assurance.roi_size"/>
+        <link source="zalph" destination="fmri_quality_assurance.zalph"/>
+        <link source="slice_axis" destination="fmri_quality_assurance.slice_axis"/>
+        <link source="score_to_plot" destination="plot_results.selection"/>
+        <link source="n_bins" destination="plot_results.n_bins" />
+        <link source="group_list" destination="plot_results.groups"/>
+        <link source="output_directory" destination="plot_results.output_directory"/>
+        <!-- INTERNAL LINKS -->
+        <link source="fmri_quality_assurance.scores_file" destination="plot_results.file_list"/>
+        <!-- OUTPUTS -->
+        <link source="fmri_quality_assurance.snap_spikes" destination="snap_spikes"/>
+        <link source="fmri_quality_assurance.snap_sfnr" destination="snap_sfnr"/>
+        <link source="plot_results.output_dir" destination="plots_directory"/>
+    </links>
+    <positions>
+        <position unit="fmri_quality_assurance" x="158" y="-1"/>
+        <position unit="inputs" x="-50" y="0"/>
+        <position unit="plot_results" x="199" y="199"/>
+        <position unit="outputs" x="371" y="300"/>
+    </positions>
+    <scale factor="1.0"/>
+</pipeline>

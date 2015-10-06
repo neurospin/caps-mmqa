@@ -112,6 +112,7 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     """
     # Get image data
     array_image = load_fmri_dataset(image_file)
+
     if len(exclude_volumes) > 0:
         to_keep = sorted(set(range(
             array_image.shape[3])).difference(exclude_volumes))
@@ -554,7 +555,7 @@ def time_series_figure(time_series, polynomial, drift, snr, title=None):
     return figure
 
 
-def aggregate_results(snr_score, sfnr_score, spike_score, output_file):
+def aggregate_results(snr_score, sfnr_score, spike_score, output_directory):
     """
     This function takes the dictionaries outputed by other processed and
     merge them into one general result json file
@@ -563,13 +564,13 @@ def aggregate_results(snr_score, sfnr_score, spike_score, output_file):
         <input name="snr_score" type="File" desc="the snr json file"/>
         <input name="sfnr_score" type="File" desc="the sfnr json file"/>
         <input name="spike_score" type="File" desc="the spike json file"/>
-        <input name="output_file" type="File" desc="The output
-            file containing all the scores"/>
+        <input name="output_directory" type="Directory" desc="The output
+            dir containing the score file"/>
         <output name="scores_file" type="File" desc="All scores in a
             json file"/>
     </unit>
     """
-
+    scores_file = os.path.join(output_directory, "scores.json")
     out = {}
     with open(snr_score, "r") as _file:
         temp = json.load(_file)
@@ -581,8 +582,7 @@ def aggregate_results(snr_score, sfnr_score, spike_score, output_file):
         temp = json.load(_file)
     out.update(temp)
 
-    with open(output_file, "w") as _file:
+    with open(scores_file, "w") as _file:
         json.dump(out, _file)
 
-    scores_file = output_file
     return scores_file

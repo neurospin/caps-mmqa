@@ -42,7 +42,6 @@
         <link source="slice_axis" destination="spikes.slice_axis"/>
         <link source="figure_titles" destination="snr_fluct_and_drift.title"/>
         <link source="exclude_volumes" destination="snr.exclude_volumes"/>
-        <link source="score_file" destination="aggregate_results.output_file" />
         <link source="brain_extraction._mask_file" destination="snr.mask_file"/>
         <link source="image_file" destination="spikes.image_file"/>
         <link source="figure_titles" destination="spikes.title" />

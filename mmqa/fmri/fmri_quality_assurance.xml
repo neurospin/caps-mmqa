@@ -3,21 +3,38 @@
         Spike detection and SNR estimation (iterative pipeline).
     </docstring>
     <units>
-        <module>mmqa.fmri.fmri_quality_assurance.xml</module>
+        <unit name="fmri_quality_assurance">
+            <module>mmqa.fmri.fmri_quality_assurance_bbox.xml</module>
+            <set name="output_directory" value="None"/>
+            <iterinput name="image_file"/>
+            <iterinput name="exclude_volumes"/>
+            <iterinput name="figure_titles"/>
+            <iterinput name="repetition_time"/>
+            <iteroutput name="scores_file"/>
+            <iteroutput name="snap_spikes"/>
+            <iteroutput name="snap_sfnr"/>
+        </unit>
     </units>
     <links>
-        <link source="image_file" destination="snr_fluct_and_drift.image_file"/>
-        <link source="repetition_time" destination="snr_fluct_and_drift.repetition_time"/>
-        <link source="roi_size" destination="snr_fluct_and_drift.roi_size"/>
-        <link source="zalph" destination="spikes.zalph"/>
-        <link source="time_axis" destination="spikes.time_axis"/>
-        <link source="slice_axis" destination="spikes.slice_axis"/>
-        <link source="figure_titles" destination="snr_fluct_and_drift.title"/>
-        <link source="exclude_volumes" destination="snr.exclude_volumes"/>
-        <link source="score_file" destination="aggregate_results.output_file" />
+        <!-- INPUTS -->
+        <link source="image_file" destination="fmri_quality_assurance.iterimage_file"/>
+        <link source="exclude_volumes" destination="fmri_quality_assurance.iterexclude_volumes"/>
+        <link source="figure_titles" destination="fmri_quality_assurance.iterfigure_titles"/>
+        <link source="repetition_time" destination="fmri_quality_assurance.iterrepetition_time"/>
+        <link source="time_axis" destination="fmri_quality_assurance.time_axis"/>
+        <link source="roi_size" destination="fmri_quality_assurance.roi_size"/>
+        <link source="zalph" destination="fmri_quality_assurance.zalph"/>
+        <link source="slice_axis" destination="fmri_quality_assurance.slice_axis"/>
+        <!-- OUTPUTS -->
+        <link source="fmri_quality_assurance.iterscores_file" destination="scores_file"/>
+        <link source="fmri_quality_assurance.itersnap_spikes" destination="snap_spikes"/>
+        <link source="fmri_quality_assurance.itersnap_sfnr" destination="snap_sfnr"/>
+        
     </links>
     <positions>
+        <position unit="fmri_quality_assurance" x="158" y="-1"/>
         <position unit="inputs" x="-50" y="0"/>
+        <position unit="outputs" x="385" y="249"/>
     </positions>
-    <scale factor="0.5"/>
+    <zoom level="1"/>
 </pipeline>
