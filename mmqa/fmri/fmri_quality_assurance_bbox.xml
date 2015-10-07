@@ -47,7 +47,7 @@
         <link source="figure_titles" destination="spikes.title" />
         <link source="image_file" destination="snr.image_file"/>
         <link source="image_file" destination="brain_extraction.in_file"/>
-        <link source="snr.snr_file" destination="aggregate_results.snr_score" />
+        <link source="snr.snr0_file" destination="aggregate_results.snr_score" />
         <link source="snr_fluct_and_drift.fluctuation_drift_file" destination="aggregate_results.sfnr_score"/>
         <link source="spikes.spikes_file" destination="aggregate_results.spike_score"/>
         <link source="exclude_volumes" destination="snr_fluct_and_drift.exclude_volumes"/>

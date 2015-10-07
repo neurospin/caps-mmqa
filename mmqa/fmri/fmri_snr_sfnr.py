@@ -39,7 +39,8 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
             (optional)" optional="True"/>
         <input name="exclude_volumes" type="List" content="Int" desc="Exclude
             some temporal positions (optional)" optional="True"/>
-        <output name="snr_file" type="File" desc="A score in a json file"/>
+        <output name="snr0_file" type="File" desc="The SNR0 score in a
+            json file"/>
     </unit>
     """
     # Get image data
@@ -77,20 +78,21 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     # comute score and save it in json file
     snr = signal_summary / (1.53 * noise_summary)
     results = {
-        "snr": float(snr),
+        "snr0": float(snr),
         }
-    with open(os.path.join(output_directory, "snr.json"), "w") as _file:
+    with open(os.path.join(output_directory, "snr0.json"), "w") as _file:
         json.dump(results, _file)
 
-    snr_file = os.path.join(output_directory, "snr.json")
+    snr0_file = os.path.join(output_directory, "snr0.json")
 
-    return snr_file
+    return snr0_file
 
 
 def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
                                       output_directory, title=None,
                                       exclude_volumes=[]):
-    """ Compute the fluctuation and drift on a central roi.
+    """ compute the SFNR (Signal-to-fluctuation-Noise Ratio)
+        from Friedman et al. (2006)
 
     <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
@@ -118,31 +120,45 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
             array_image.shape[3])).difference(exclude_volumes))
         array_image = array_image[:, :, :, to_keep]
 
+    # compute the SFNR (Signal-to-fluctuation-Noise Ratio)
+    fmri_summary_signal = get_fmri_signal(array_image)
+    temporal_fluct_noise_image = get_fmri_temporal_fluctuation_noise(
+        array_image)
+    sfnr_image, sfnr_score = get_signal_to_fluctuation_noise_ratio(
+        fmri_summary_signal,
+        temporal_fluct_noise_image)
+
+    # Compute SNR
+    ssn_array = get_static_spatial_noise(array_image)
+
+    signal_array = get_fmri_signal(array_image)
+    snr = get_spatial_noise_ratio(signal_array, ssn_array,
+                                  array_image.shape[3],
+                                  roi_size=roi_size)
+
     # Compute the drift and fluctuation
     (average_intensity, polynomial, residuals, fluctuation,
      drift) = get_snr_percent_fluctuation_and_drift(array_image,
                                                     roi_size=roi_size)
-    spectrum = get_residuals_spectrum(residuals, repetition_time * 10e-3)
 
-    # Compute the snr
-    signal_array = get_fmri_signal(array_image)
-    ssn_array = get_static_spatial_noise(array_image)
-    ssnr = get_spatial_noise_ratio(signal_array, ssn_array,
-                                   array_image.shape[3],
-                                   roi_size=roi_size)
+    spectrum = get_residuals_spectrum(residuals, repetition_time)
 
     # Compute a weisskoff analysis on the fluctuation
-    fluctuations, theoretical_fluctuations = get_weisskoff_analysis(
+    (fluctuations, theoretical_fluctuations,
+     rdc, max_fluctuation, max_roi_size) = get_weisskoff_analysis(
         array_image, max_roi_size=roi_size)
 
     # Save the result in a json
     fluctuation_drift_file = os.path.join(
         output_directory, "snr_fluctuation_drift.json")
     results = {
-        "drift": drift * 100,
-        "ssnr": 10 * numpy.log10(ssnr),
-        "sfnr": 1. / fluctuation
+        "drift": drift * 100.,
+        "snr": snr,
+        "sfnr": sfnr_score,
+        "weisskoff_rdc": rdc,
+        "fluctuation": fluctuation * 100.
     }
+
     with open(fluctuation_drift_file, "w") as json_data:
         json.dump(results, json_data)
 
@@ -152,14 +168,15 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     pdf = PdfPages(snap_fluctuation_drift)
     try:
         # Plot one figure per page
-        fig = time_series_figure(average_intensity, polynomial, drift, ssnr,
+        fig = time_series_figure(average_intensity, polynomial, drift, snr,
                                  title)
         pdf.savefig(fig)
         plt.close(fig)
         fig = spectrum_figure(spectrum, title)
         pdf.savefig(fig)
         plt.close(fig)
-        fig = weisskoff_figure(fluctuations, theoretical_fluctuations, title)
+        fig = weisskoff_figure(fluctuations, theoretical_fluctuations, rdc,
+                               max_fluctuation, max_roi_size, title)
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -286,7 +303,7 @@ def get_signal_to_fluctuation_noise_ratio(signal_array, tfn_array,
     sfnr_array = signal_array / (tfn_array + numpy.finfo(float).eps)
 
     # Create a central roi
-    center = numpy.round(sfnr_array.shape / 2)
+    center = numpy.round((numpy.asarray(sfnr_array.shape)) / 2)
     roi = sfnr_array[center[0] - roi_size: center[0] + roi_size,
                      center[1] - roi_size: center[1] + roi_size,
                      center[2]]
@@ -322,6 +339,7 @@ def get_static_spatial_noise(array):
     even_array = array[..., range(0, shape_t, 2)]
     even_sum_array = numpy.sum(even_array, 3)
     ssn_array = odd_sum_array - even_sum_array
+
     return ssn_array
 
 
@@ -444,7 +462,7 @@ def get_residuals_spectrum(residuals, repetition_time):
     residuals: array [N]
         the residuals between the time serie values and the model.
     repetition_time: float
-        the repetition time in ms.
+        the repetition time in s.
     """
     fft = numpy.fft.rfft(residuals)
     if residuals.size % 2 == 0:
@@ -483,11 +501,29 @@ def get_weisskoff_analysis(array, max_roi_size=30):
     # The theorical fluctuation is given by the ine voxel roi fluctuation
     theoretical_fluctuation = fluctuation[0] / roi_sizes
 
+    # Get the RDC (Radius of Decorrelation)
+    # get the straight line equation y = ax + b for theorical decrease
+    # where y = log(fluctuation) and x = log(roi_width)
+    # from the theorical fluctuation equation, we have:
+    # log(y) = log(x0) - log(x) (a = -1, b = log(x0))
+    # so log(rdc) = log(x0) - log(y_rdc) with y_rdc =  fluctuation[-1]
+    # and x0 = theoretical_fluctuation[0]
+
+    rdc_log = numpy.log(theoretical_fluctuation[0]) - \
+        numpy.log(fluctuation[-1])
+
+    # get back to 'real' value
+    rdc = numpy.exp(rdc_log)
+
     return (numpy.vstack((roi_sizes, fluctuation)),
-            numpy.vstack((roi_sizes, theoretical_fluctuation)))
+            numpy.vstack((roi_sizes, theoretical_fluctuation)),
+            rdc,
+            fluctuation[-1],
+            max_roi_size)
 
 
-def weisskoff_figure(fluctuations, theoretical_fluctuations, title=None):
+def weisskoff_figure(fluctuations, theoretical_fluctuations, rdc,
+                     max_fluctuation, max_roi_size, title=None):
     """ Return a matplotlib figure containing the Weisskoff analysis.
 
     Parameters
@@ -500,14 +536,29 @@ def weisskoff_figure(fluctuations, theoretical_fluctuations, title=None):
     figure = plt.figure()
     plot = figure.add_subplot(111)
     plot.grid(True, which="both", ls="-")
+    plot.axes.loglog()
+
     if title:
         plt.title("{0}\nWeisskoff analysis".format(title))
     else:
         plt.title("Weisskoff analysis")
-    plot.plot(fluctuations[0], 100 * fluctuations[1], "ko-", fillstyle="full")
-    plot.plot(theoretical_fluctuations[0], 100 * theoretical_fluctuations[1],
+    plot.plot(fluctuations[0, :], 100 * fluctuations[1, :], "ko-",
+              fillstyle="full")
+    plot.plot(theoretical_fluctuations[0, :],
+              100 * theoretical_fluctuations[1, :],
               "ko-", markerfacecolor="w")
-    plot.axes.loglog()
+
+    ymin, ymax = plt.ylim()
+    plot.plot([rdc, rdc], [ymin, 100 * max_fluctuation], "r-")
+    plot.plot([rdc, max_roi_size],
+              [100 * max_fluctuation, 100 * max_fluctuation], "r-")
+    plt.ylim((ymin, ymax))
+    plt.xlim((1, max_roi_size + 10))
+
+    plot.text(rdc, ymin, 'rdc = {0}'.format(round(rdc, 2)),
+              verticalalignment='bottom', horizontalalignment='right',
+              color='red', fontsize=10)
+#    plt.xticks(list(plt.xticks()[0]) + [rdc])
     plot.axes.set_xlabel("ROI width (pixels)")
     plot.axes.set_ylabel("Fluctuation (%)")
     plot.xaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
