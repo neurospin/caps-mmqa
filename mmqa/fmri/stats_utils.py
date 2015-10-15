@@ -75,7 +75,7 @@ def time_slice_diffs(array):
 
     Parameters
     ----------
-    array: array_like (T, S, ...) 
+    array: array_like (T, S, ...)
         array over which to calculate time and slice differences. The time axis
         is 0 and the slice axis is 1. See the `format_time_serie` function
         to format properly the array.
@@ -83,7 +83,7 @@ def time_slice_diffs(array):
     Returns
     -------
     smd2: array (T-1, S)
-        slice mean squared difference: giving the mean (over voxels in slice) 
+        slice mean squared difference: giving the mean (over voxels in slice)
         of the difference from one time point to the next, one value per slice,
         per timepoint
     """
@@ -93,7 +93,6 @@ def time_slice_diffs(array):
     # shapes of things
     nb_of_timepoints = array.shape[0]
     nb_of_slices = array.shape[1]
-    slice_shape = array.shape[1:]
 
     # Go through all timepoints - 1: squared slice difference
     smd2 = np.empty((nb_of_timepoints - 1, nb_of_slices))
@@ -130,7 +129,7 @@ def median_absolute_deviation(array, c=scipy.stats.norm.ppf(3/4.), axis=0,
     # Compute the center if a callable is passed in parameters
     if callable(center):
         center = np.apply_over_axes(center, array, axis)
-    
+
     # Compute the median absolute deviation
     return np.median((np.fabs(array - center)) / c, axis=axis)
 
@@ -138,7 +137,7 @@ def median_absolute_deviation(array, c=scipy.stats.norm.ppf(3/4.), axis=0,
 def mutual_information(array1, array2, bins=256):
     """ Computes the mutual information (MI) (a measure of entropy) between
     two images.
-    
+
     Mutual information measures the information that array1 and array2 share:
     it measures how much knowing one of these variables reduces uncertainty
     about the other.
@@ -158,22 +157,22 @@ def mutual_information(array1, array2, bins=256):
     Raises
     ------
     ValueError: if the arrays have not the same shape.
-    """   
+    """
     # Check the array shapes
     if array1.shape != array1.shape:
         raise ValueError("The two arrays must have the same shape.")
-    
+
     # Compute histogram ranges
     array1_range = hist_range(array1, bins)
     array2_range = hist_range(array2, bins)
-    
+
     # Compute the joined and separated normed histograms
     joint_hist, _, _ = np.histogram2d(
         array1.flatten(), array2.flatten(), bins=bins,
         range=[array1_range, array2_range])
     array1_hist, _ = np.histogram(array1, bins=bins, range=array1_range)
     array2_hist, _ = np.histogram(array2, bins=bins, range=array2_range)
-    
+
     # Compute the joined and separated entropy
     joint_entropy = entropy(joint_hist)
     array1_entropy = entropy(array1_hist)
@@ -200,7 +199,7 @@ def hist_range(array, bins):
     """
     s = 0.5 * (array.max() - array.min()) / float(bins - 1)
     return (array.min() - s, array.max() + s)
- 
+
 
 def entropy(data):
     """ Compute the entropy of a dataset.

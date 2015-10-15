@@ -1,0 +1,68 @@
+<pipeline>
+    <docstring>
+        Spike detection and SNR estimation (Building BOX).
+    </docstring>
+    <units>
+        <unit name="brain_extraction">
+            <module>nipype.interfaces.fsl.BET</module>
+            <set name="output_directory" value="Undefined"/>
+            <set name="terminal_output" value="'none'"/>
+            <set name="mask" value="True"/>
+            <set name="no_output" value="True"/>
+        </unit>
+        <unit name="snr">
+            <module>mmqa.fmri.fmri_snr_sfnr.signal_to_noise_ratio</module>
+            <set name="output_directory" value="Undefined"/>
+            <set name="roi_size" value="10"/>
+            <set name="exclude_volumes" value="[]"/>
+        </unit>
+        <unit name="snr_fluct_and_drift">
+            <module>mmqa.fmri.fmri_snr_sfnr.snr_percent_fluctuation_and_drift</module>
+            <set name="roi_size" value="10"/>
+            <set name="output_directory" value="Undefined"/>
+        </unit>
+        <unit name="spikes">
+            <module>mmqa.fmri.fmri_spikes.spike_detector</module>
+            <set name="zalph" value="5"/>
+            <set name="time_axis" value="-1"/>
+            <set name="slice_axis" value="-2"/>
+            <set name="output_directory" value="Undefined"/>
+        </unit>
+        <unit name="aggregate_results">
+            <module>mmqa.fmri.fmri_snr_sfnr.aggregate_results</module>
+            <set name="output_directory" value="Undefined"/>
+        </unit>
+    </units>
+    <links>
+        <link source="image_file" destination="snr_fluct_and_drift.image_file"/>
+        <link source="repetition_time" destination="snr_fluct_and_drift.repetition_time"/>
+        <link source="roi_size" destination="snr_fluct_and_drift.roi_size"/>
+        <link source="zalph" destination="spikes.zalph"/>
+        <link source="time_axis" destination="spikes.time_axis"/>
+        <link source="slice_axis" destination="spikes.slice_axis"/>
+        <link source="figure_titles" destination="snr_fluct_and_drift.title"/>
+        <link source="exclude_volumes" destination="snr.exclude_volumes"/>
+        <link source="brain_extraction._mask_file" destination="snr.mask_file"/>
+        <link source="image_file" destination="spikes.image_file"/>
+        <link source="figure_titles" destination="spikes.title" />
+        <link source="image_file" destination="snr.image_file"/>
+        <link source="image_file" destination="brain_extraction.in_file"/>
+        <link source="snr.snr0_file" destination="aggregate_results.snr_score" />
+        <link source="snr_fluct_and_drift.fluctuation_drift_file" destination="aggregate_results.sfnr_score"/>
+        <link source="spikes.spikes_file" destination="aggregate_results.spike_score"/>
+        <link source="exclude_volumes" destination="snr_fluct_and_drift.exclude_volumes"/>
+        <link source="aggregate_results.scores_file" destination="scores_file"/>
+        <link source="spikes.snap_spikes" destination="snap_spikes"/>
+        <link source="snr_fluct_and_drift.snap_fluctuation_drift" destination="snap_sfnr"/>
+    </links>
+    <positions>
+        <position unit="inputs" x="-766" y="224"/>
+        <position unit="snr_fluct_and_drift" x="-452" y="-171"/>
+        <position unit="spikes" x="-429" y="34"/>
+        <position unit="outputs" x="526" y="-19"/>
+        <position unit="brain_extraction" x="-106" y="44" />
+        <position unit="snr" x="136" y="579" />
+        <position unit="aggregate_results" x="340" y="194" />
+    </positions>
+    <scale factor="0.5"/>
+</pipeline>
