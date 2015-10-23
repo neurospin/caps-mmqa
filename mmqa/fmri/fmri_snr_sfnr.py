@@ -45,6 +45,7 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     """
     # Get image data
     array_image = load_fmri_dataset(image_file)
+
     if len(exclude_volumes) > 0:
         to_keep = sorted(set(range(
             array_image.shape[3])).difference(exclude_volumes))
@@ -52,11 +53,21 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
 
     # Create a central roi
     center = numpy.round(numpy.asarray(array_image.shape) / 2)
-    signal_roi_array = array_image[
-        center[0] - roi_size: center[0] + roi_size,
-        center[1] - roi_size: center[1] + roi_size,
-        center[2],
-        :]
+    if roi_size == 1:
+        signal_roi_array = array_image[center[0],
+                                       center[1],
+                                       center[2] + 3]
+    # Even dimension, cannot be perfectly centered
+    elif roi_size % 2 == 0:
+        signal_roi_array = array_image[
+            center[0] - (roi_size / 2 - 1): center[0] + (roi_size / 2) + 1,
+            center[1] - (roi_size / 2 - 1): center[1] + (roi_size / 2) + 1,
+            center[2] + 3]
+    else:
+        signal_roi_array = array_image[
+            center[0] - (roi_size - 1) / 2: center[0] + (roi_size - 1) / 2 + 1,
+            center[1] - (roi_size - 1) / 2: center[1] + (roi_size - 1) / 2 + 1,
+            center[2] + 3]
 
     # average over time and space
     signal_summary = numpy.average(signal_roi_array)
@@ -128,25 +139,25 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
         fmri_summary_signal,
         temporal_fluct_noise_image)
 
-    # Compute SNR
+    # Compute Static Spatial Noise Image
     ssn_array = get_static_spatial_noise(array_image)
 
-    signal_array = get_fmri_signal(array_image)
-    snr = get_spatial_noise_ratio(signal_array, ssn_array,
+    snr = get_spatial_noise_ratio(fmri_summary_signal, ssn_array,
                                   array_image.shape[3],
                                   roi_size=roi_size)
 
     # Compute the drift and fluctuation
-    (average_intensity, polynomial, residuals, fluctuation,
-     drift) = get_snr_percent_fluctuation_and_drift(array_image,
-                                                    roi_size=roi_size)
+    (mean_signal_intensity, average_intensity, polynomial, residuals,
+     fluctuation, drift) = get_snr_percent_fluctuation_and_drift(
+         array_image,
+         roi_size=roi_size)
 
-    spectrum = get_residuals_spectrum(residuals, repetition_time)
+    spectrum = get_residuals_spectrum(residuals, mean_signal_intensity,
+                                      repetition_time)
 
     # Compute a weisskoff analysis on the fluctuation
     (fluctuations, theoretical_fluctuations,
-     rdc, max_fluctuation, max_roi_size) = get_weisskoff_analysis(
-        array_image, max_roi_size=roi_size)
+     rdc, max_fluctuation, max_roi_size) = get_weisskoff_analysis(array_image)
 
     # Save the result in a json
     fluctuation_drift_file = os.path.join(
@@ -224,6 +235,7 @@ def get_fmri_signal(array):
     Notes
     -----
     FMRI Data Quality, Pablo Velasco, 2014
+    Report on a Multicenter fMRI Quality Assurance Protocol, Lee Friedman, 2006
     SINAPSE fMRI Quality Assurance, Katherine Lymer
     """
     return numpy.average(array, 3)
@@ -250,13 +262,17 @@ def get_fmri_temporal_fluctuation_noise(array):
     tfn: array [X,Y,Z]
         the temporal fluctuation noise array.
     """
-    # Flatten input array
-    flat_array = array.ravel()
     voxels_per_volume = reduce(lambda x, y: x * y, array.shape[: -1], 1)
+
+    # Flatten input array
+    flat_array = []
+    for t in range(array.shape[-1]):
+        flat_array.extend(array[:, :, :, t].ravel())
 
     # Compute the temporal fluctuation noise
     tfn = numpy.ndarray((voxels_per_volume,), dtype=numpy.single)
     x = numpy.arange(array.shape[3])
+
     for i in range(voxels_per_volume):
 
         # Get the temporal signal at one voxel
@@ -303,10 +319,22 @@ def get_signal_to_fluctuation_noise_ratio(signal_array, tfn_array,
     sfnr_array = signal_array / (tfn_array + numpy.finfo(float).eps)
 
     # Create a central roi
-    center = numpy.round((numpy.asarray(sfnr_array.shape)) / 2)
-    roi = sfnr_array[center[0] - roi_size: center[0] + roi_size,
-                     center[1] - roi_size: center[1] + roi_size,
-                     center[2]]
+    center = numpy.round(numpy.asarray(sfnr_array.shape) / 2)
+    if roi_size == 1:
+        roi = sfnr_array[center[0],
+                         center[1],
+                         center[2] + 3]
+    # even dimension, cannot be perfectly centered
+    elif roi_size % 2 == 0:
+        roi = sfnr_array[
+            center[0] - (roi_size / 2 - 1): center[0] + (roi_size / 2) + 1,
+            center[1] - (roi_size / 2 - 1): center[1] + (roi_size / 2) + 1,
+            center[2] + 3]
+    else:
+        roi = sfnr_array[
+            center[0] - (roi_size - 1) / 2: center[0] + (roi_size - 1) / 2 + 1,
+            center[1] - (roi_size - 1) / 2: center[1] + (roi_size - 1) / 2 + 1,
+            center[2] + 3]
 
     # Compute the signal to fluctuation noise ratio summary
     sfnr_summary = numpy.average(roi)
@@ -344,7 +372,7 @@ def get_static_spatial_noise(array):
 
 
 def get_spatial_noise_ratio(signal_array, ssn_array, nb_time_points,
-                            roi_size=10):
+                            roi_size=21):
     """ A central ROI is placed in the center of the static spatial noise
     image. The SNR is the signal summary value divided by by the square root
     of the variance summary value divided by the numbre of time points
@@ -366,17 +394,44 @@ def get_spatial_noise_ratio(signal_array, ssn_array, nb_time_points,
     -------
     snr: float
         the fMRI image signal to noise ratio.
+
+    Notes
+    -----
+    From National Electric Manufacturer Association (NEMA). Determination of
+    signal-to-noise ratio (SNR) in diagnosis magnetic resonance images.
+    Nema: Rosslyn, VA, 1988
+
     """
     # Create a central roi
     center = numpy.round(numpy.asarray(signal_array.shape) / 2)
-    signal_roi_array = signal_array[
-        center[0] - roi_size: center[0] + roi_size,
-        center[1] - roi_size: center[1] + roi_size,
-        center[2]]
-    ssn_roi_array = ssn_array[
-        center[0] - roi_size: center[0] + roi_size,
-        center[1] - roi_size: center[1] + roi_size,
-        center[2]]
+    if roi_size == 1:
+        signal_roi_array = signal_array[center[0],
+                                        center[1],
+                                        center[2] + 3,
+                                        :]
+        ssn_roi_array = ssn_array[center[0],
+                                  center[1],
+                                  center[2] + 3,
+                                  :]
+    # even dimension, cannot be perfectly centered
+    elif roi_size % 2 == 0:
+        signal_roi_array = signal_array[
+            center[0] - (roi_size / 2 - 1): center[0] + (roi_size / 2) + 1,
+            center[1] - (roi_size / 2 - 1): center[1] + (roi_size / 2) + 1,
+            center[2] + 3]
+        ssn_roi_array = ssn_array[
+            center[0] - (roi_size / 2 - 1): center[0] + (roi_size / 2) + 1,
+            center[1] - (roi_size / 2 - 1): center[1] + (roi_size / 2) + 1,
+            center[2] + 3]
+    else:
+        signal_roi_array = signal_array[
+            center[0] - (roi_size - 1) / 2: center[0] + (roi_size - 1) / 2 + 1,
+            center[1] - (roi_size - 1) / 2: center[1] + (roi_size - 1) / 2 + 1,
+            center[2] + 3]
+        ssn_roi_array = ssn_array[
+            center[0] - (roi_size - 1) / 2: center[0] + (roi_size - 1) / 2 + 1,
+            center[1] - (roi_size - 1) / 2: center[1] + (roi_size - 1) / 2 + 1,
+            center[2] + 3]
 
     # Get the signal and variance summaries
     signal_summary = numpy.average(signal_roi_array)
@@ -388,7 +443,7 @@ def get_spatial_noise_ratio(signal_array, ssn_array, nb_time_points,
     return snr
 
 
-def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
+def get_snr_percent_fluctuation_and_drift(array, roi_size=21):
     """ A time-series of the average intensity within a 21 x 21 voxel ROI
     centered in the image is calculated.
 
@@ -425,17 +480,36 @@ def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
     """
     # Create a central roi
     center = numpy.round(numpy.asarray(array.shape) / 2)
-    roi = array[center[0] - roi_size: center[0] + roi_size,
-                center[1] - roi_size: center[1] + roi_size,
-                center[2]]
-    shape = roi.shape
+    if roi_size == 1:
+        roi = array[center[0],
+                    center[1],
+                    center[2] + 3,
+                    :]
+    # even dimension, cannot be perfectly centered
+    elif roi_size % 2 == 0:
+        roi = array[
+            center[0] - (roi_size / 2 - 1): center[0] + (roi_size / 2) + 1,
+            center[1] - (roi_size / 2 - 1): center[1] + (roi_size / 2) + 1,
+            center[2] + 3,
+            :]
+    else:
+        roi = array[
+            center[0] - (roi_size - 1) / 2: center[0] + (roi_size - 1) / 2 + 1,
+            center[1] - (roi_size - 1) / 2: center[1] + (roi_size - 1) / 2 + 1,
+            center[2] + 3,
+            :]
 
+    shape = roi.shape
     # Compute the mean signal intensity
     mean_signal_intensity = numpy.average(roi)
 
     # Compute the average voxel intensity across time
-    average_intensity = numpy.sum(numpy.sum(roi, 0), 0)
-    average_intensity /= (shape[0] * shape[1])
+    if roi_size == 1:
+        average_intensity = roi
+    else:
+        average_intensity = numpy.sum(
+            numpy.sum(roi, 0), 0) + numpy.finfo(float).eps
+        average_intensity /= (shape[0] * shape[1])
 
     # Compute the temporal fluctuation noise
     # > a second-order polynomial detrending to remove the slow drift
@@ -446,16 +520,21 @@ def get_snr_percent_fluctuation_and_drift(array, roi_size=10):
     # of the residual variance of each voxel after the detrending
     residuals = average_intensity - average_intensity_model
     fluctuation = numpy.std(residuals) / mean_signal_intensity
+
     # Compute the drift
     drift = (average_intensity_model.max() -
              average_intensity_model.min()) / mean_signal_intensity
 
-    return average_intensity, polynomial, residuals, fluctuation, drift
+    return (mean_signal_intensity, average_intensity, polynomial, residuals,
+            fluctuation, drift)
 
 
-def get_residuals_spectrum(residuals, repetition_time):
+def get_residuals_spectrum(residuals, mean_signal_intensity, repetition_time):
     """ Residuals of the mean signal intensity fit are submitted to
     a fast Fourier transform (FFT).
+
+    To allow multi-site comparison, we divide the residuals by the mean
+    signal intensity.
 
     Parameters
     ----------
@@ -464,7 +543,7 @@ def get_residuals_spectrum(residuals, repetition_time):
     repetition_time: float
         the repetition time in s.
     """
-    fft = numpy.fft.rfft(residuals)
+    fft = numpy.fft.rfft(residuals / mean_signal_intensity)
     if residuals.size % 2 == 0:
         # Discard real term for frequency n/2
         fft = fft[:-1]
@@ -472,7 +551,33 @@ def get_residuals_spectrum(residuals, repetition_time):
     return numpy.vstack((fftfreq[:len(fft)], numpy.abs(fft)))
 
 
-def get_weisskoff_analysis(array, max_roi_size=30):
+def get_gaussian_model(residuals, n_bins=50):
+
+    from scipy.stats import norm
+    import matplotlib.mlab as mlab
+
+    mu, std = norm.fit(residuals)
+
+    plt.figure()
+    plt.subplot(211)
+    result = plt.hist(residuals, n_bins, histtype='bar')
+
+    born_inf, born_supp = norm.interval(0.95, mu, std)
+
+    x = numpy.linspace(min(residuals), max(residuals), 100)
+
+    dx = result[1][1] - result[1][0]
+    scale = len(residuals) * dx
+    plt.plot(x, mlab.normpdf(x, mu, std) * scale, "r--", linewidth=2.0)
+    plt.axvline(born_inf, color='g', linewidth=2.0)
+    plt.axvline(born_supp, color='g', linewidth=2.0)
+    plt.subplot(212)
+    plt.plot(residuals)
+
+    plt.show()
+
+
+def get_weisskoff_analysis(array, max_roi_size=25):
     """ The Weisskoff analysis provides another measure of scanner
     stability included in the GSQAP.
 
