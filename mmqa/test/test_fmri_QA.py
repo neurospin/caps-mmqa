@@ -12,6 +12,7 @@ import os
 import sys
 import unittest
 import tempfile
+import json
 
 
 
@@ -31,7 +32,6 @@ def pilot_qa_fmri():
 
     # Mmutils import
     from mmutils.toy_datasets import get_sample_data
-
 
     """
     Parameters
@@ -86,9 +86,9 @@ def pilot_qa_fmri():
     """
 
     pipeline = get_process_instance(pipeline_name)
-    pipeline.image_file = localizer_dataset.fmri,
-    pipeline.repetition_time = localizer_dataset.TR * 1000.
-    pipeline.score_file = os.path.join(self.outdir, "scores.json")
+    pipeline.image_file = localizer_dataset.fmri
+    pipeline.repetition_time = 2.0
+    pipeline.score_file = os.path.join(outdir, "scores.json")
 
     """
     Pipeline representation
