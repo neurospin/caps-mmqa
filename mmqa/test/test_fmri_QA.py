@@ -72,7 +72,7 @@ def pilot_qa_fmri():
     locally.
     """
 
-    localizer_dataset = get_sample_data("localizer")
+    localizer_dataset = get_sample_data("localizer_extra")
 
     """
     Pipeline definition
