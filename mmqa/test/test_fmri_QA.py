@@ -33,6 +33,14 @@ def pilot_qa_fmri():
     # Mmutils import
     from mmutils.toy_datasets import get_sample_data
 
+
+    import capsul
+
+    print capsul.__file__
+    print capsul.__version__
+
+    print stop
+
     """
     Parameters
     ----------
