@@ -39,8 +39,6 @@ def pilot_qa_fmri():
     print capsul.__file__
     print capsul.__version__
 
-    print stop
-
     """
     Parameters
     ----------
