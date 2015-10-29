@@ -149,8 +149,8 @@ def snr_percent_fluctuation_and_drift(image_file, repetition_time, roi_size,
     # Compute the drift and fluctuation
     (mean_signal_intensity, average_intensity, polynomial, residuals,
      fluctuation, drift) = get_snr_percent_fluctuation_and_drift(
-         array_image,
-         roi_size=roi_size)
+        array_image,
+        roi_size=roi_size)
 
     spectrum = get_residuals_spectrum(residuals, mean_signal_intensity,
                                       repetition_time)
