@@ -55,9 +55,6 @@ def pilot_qa_fmri():
     must be set to True if more than 1 CPU is used.
     """
     study_config = StudyConfig(
-        modules=["FSLConfig"],
-        fsl_config="/etc/fsl/fsl.sh",
-        use_fsl=True,
         number_of_cpus=1,
         generate_logging=True,
         use_scheduler=True,
@@ -87,6 +84,7 @@ def pilot_qa_fmri():
     pipeline = get_process_instance(pipeline_name)
     pipeline.image_file = localizer_dataset.fmri
     pipeline.repetition_time = 2.0
+    pipeline.exclude_volume = []
     pipeline.roi_size = 21
     pipeline.score_file = os.path.join(outdir, "scores.json")
 

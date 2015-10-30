@@ -21,8 +21,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
 
-def signal_to_noise_ratio(image_file, mask_file, output_directory,
-                          exclude_volumes, roi_size):
+def signal_to_noise_ratio(image_file, output_directory,
+                          exclude_volumes, roi_size=20):
     """
     Compute signal to noise ratio of a 4D image (from Velasco 2014)
     "It takes as 'signal' the average voxel intensity in all the ROIs
@@ -32,7 +32,6 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
 
     <unit>
         <input name="image_file" type="File" desc="A functional volume."/>
-        <input name="mask_file" type="File" desc="The BET mask"/>
         <input name="output_directory" type="Directory" desc="The output
             directory"/>
         <input name="roi_size" type="Int" desc="Size of the central ROI
@@ -72,24 +71,42 @@ def signal_to_noise_ratio(image_file, mask_file, output_directory,
     # average over time and space
     signal_summary = numpy.average(signal_roi_array)
 
-    # Get background data
-    array_mask = load_fmri_dataset(mask_file)
+    average_img = numpy.average(array_image, axis=3)
 
-    # Dilation of the mask
-    mask = ndim.binary_dilation(array_mask, iterations=3).astype(
-        array_mask.dtype)
+    mask = average_img > (signal_summary / 3)
+    mask = mask.astype(int)
+
+#    # Dilation of the mask
+    mask = ndim.binary_dilation(mask, iterations=5).astype(
+        mask.dtype)
+
     # compute the standard deviation for each volume
     stds = [numpy.std(numpy.ma.masked_array(array_image[:, :, :, x],
                                             mask=mask))
             for x in range(array_image.shape[3])]
 
+    maxs = [numpy.max(numpy.ma.masked_array(array_image[:, :, :, x],
+                                            mask=mask))
+            for x in range(array_image.shape[3])]
+
+    means = [numpy.mean(numpy.ma.masked_array(array_image[:, :, :, x],
+                                              mask=mask))
+             for x in range(array_image.shape[3])]
+
     # average over time
     noise_summary = numpy.average(stds)
+    max_summary = numpy.average(maxs)
+    mean_summary = numpy.average(means)
 
-    # comute score and save it in json file
+    # comute scores and save it in json file
     snr = signal_summary / (1.53 * noise_summary)
+    sog_max = signal_summary / max_summary
+    sog_mean = signal_summary / mean_summary
+
     results = {
         "snr0": float(snr),
+        "sog_max": float(sog_max),
+        "sog_mean": float(sog_mean)
         }
     with open(os.path.join(output_directory, "snr0.json"), "w") as _file:
         json.dump(results, _file)
