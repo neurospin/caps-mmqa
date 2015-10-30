@@ -5,30 +5,30 @@
     <units>
         <unit name="brain_extraction">
             <module>nipype.interfaces.fsl.BET</module>
-            <set name="output_directory" value="Undefined"/>
+            <set name="output_directory" value="None"/>
             <set name="terminal_output" value="'none'"/>
             <set name="mask" value="True"/>
             <set name="no_output" value="True"/>
         </unit>
         <unit name="snr">
             <module>mmqa.fmri.fmri_snr_sfnr.signal_to_noise_ratio</module>
-            <set name="output_directory" value="Undefined"/>
+            <set name="output_directory" value="None"/>
             <set name="exclude_volumes" value="[]"/>
         </unit>
         <unit name="snr_fluct_and_drift">
             <module>mmqa.fmri.fmri_snr_sfnr.snr_percent_fluctuation_and_drift</module>
-            <set name="output_directory" value="Undefined"/>
+            <set name="output_directory" value="None"/>
         </unit>
         <unit name="spikes">
             <module>mmqa.fmri.fmri_spikes.spike_detector</module>
             <set name="zalph" value="5"/>
             <set name="time_axis" value="-1"/>
             <set name="slice_axis" value="-2"/>
-            <set name="output_directory" value="Undefined"/>
+            <set name="output_directory" value="None"/>
         </unit>
         <unit name="aggregate_results">
             <module>mmqa.fmri.fmri_snr_sfnr.aggregate_results</module>
-            <set name="output_directory" value="Undefined"/>
+            <set name="output_directory" value="None"/>
         </unit>
     </units>
     <links>
