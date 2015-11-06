@@ -43,7 +43,8 @@ def signal_to_noise_ratio(image_file, output_directory,
     </unit>
     """
     # Get image data
-    array_image = load_fmri_dataset(image_file)
+    img = nibabel.load(image_file)
+    array_image = img.get_data()
 
     if len(exclude_volumes) > 0:
         to_keep = sorted(set(range(
@@ -76,9 +77,12 @@ def signal_to_noise_ratio(image_file, output_directory,
     mask = average_img > (signal_summary / 3)
     mask = mask.astype(int)
 
-#    # Dilation of the mask
+    # Dilation of the mask
     mask = ndim.binary_dilation(mask, iterations=5).astype(
         mask.dtype)
+    # save the mask
+    nif = nibabel.Nifti1Image(mask, img.get_affine())
+    nibabel.save(nif, os.path.join(output_directory, "mask.nii.gz"))
 
     # compute the standard deviation for each volume
     stds = [numpy.std(numpy.ma.masked_array(array_image[:, :, :, x],
@@ -302,7 +306,7 @@ def get_fmri_temporal_fluctuation_noise(array):
         # Compute the residuals
         residuals = y - model
 
-        # Compute the emporal fluctuation noise
+        # Compute the temporal fluctuation noise
         tfn[i] = numpy.std(residuals)
 
     return tfn.reshape(array.shape[:-1])
