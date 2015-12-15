@@ -1,0 +1,72 @@
+<pipeline>
+    <docstring>
+        Functional QC (from Power 2014) (Building BOX).
+    </docstring>
+    <units>
+        <unit name="get_movements_quantity">
+            <module>clinfmri.quality_control.movement_quantity.time_serie_mq</module>
+            <set name="output_directory" value="None"/>
+            <set name="package" value="'SPM'"/>
+            <set name="time_axis" value="-1"/>
+            <set name="slice_axis" value="-2"/>
+            <set name="mvt_thr" value="1.5"/>
+            <set name="rot_thr" value="0.5"/>
+        </unit>
+        <unit name="get_gray_matter_mask">
+            <module>clindmri.segmentation.freesurfer.mri_binarize</module>
+            <set name="interpolation_method" value="'interpolate'"/>
+        </unit>
+        <unit name="resample_image">
+            <module>clinfmri.statistics.csf_covars.resample_image</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+        <unit name="generate_QC">
+            <module>clinfmri.quality_control.qc_measures.power_scores</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+        <unit name="regress_out">
+            <module>nipype.interfaces.fsl.GLM</module>
+            <set name="terminal_output" value="'stream'"/>
+        </unit>
+    </units>
+    <links>
+        <!-- INPUTS -->
+        <link source="affine_matrix_file" destination="resample_image.w2wmap_file"/>
+        <link source="regions_label" destination="get_gray_matter_mask.regions_label"/>
+        <link source="freesurfer_directory" destination="get_gray_matter_mask.fsdir"/>
+        <link source="interpolation_method" destination="get_gray_matter_mask.interpolation"/>
+        <link source="subject_id" destination="get_gray_matter_mask.sid"/>
+        <link source="region_ids" destination="get_gray_matter_mask.region_ids"/>
+        <link source="functional_nifti" destination="generate_QC.before_fmri_file"/>
+        <link source="erode_path_nb" destination="resample_image.erode_path_nb"/>
+        <link source="verbose" destination="resample_image.verbose"/>
+        <link source="verbose" destination="generate_QC.verbose"/>
+        <link source="functional_nifti" destination="resample_image.target_file"/>
+        <link source="interpolation_order" destination="resample_image.order"/>
+        <link source="functional_nifti" destination="get_movements_quantity.image_file"/>
+        <link source="realignment_parameters" destination="get_movements_quantity.realignment_parameters"/>
+        <link source="realignment_parameters" destination="regress_out.design"/>
+        <link source="functional_nifti" destination="regress_out.in_file"/>
+        <link source="cleaned_fmri_nii" destination="regress_out.out_res_name"/>
+
+        <!-- INTERNAL LINKS -->
+        <link source="regress_out._out_res" destination="generate_QC.after_fmri_file"/>
+        <link source="get_gray_matter_mask.mask_file" destination="resample_image.source_file"/>
+        <link source="resample_image.resampled_file" destination="generate_QC.gm_mask"/>
+        <link source="get_movements_quantity.displacement_file" destination="generate_QC.displacement_file"/>
+        <!-- OUTPUTS -->
+        <link source="generate_QC.qc_image" destination="qc_image"/>
+        <link source="get_movements_quantity.snap_mvt" destination="snap_mvt"/>
+
+    </links>
+
+    <positions>
+        <position unit="get_movements_quantity" x="-203" y="733"/>
+        <position unit="generate_QC" x="413.75" y="622.5"/>
+        <position unit="get_gray_matter_mask" x="-287.5" y="255.0"/>
+        <position unit="inputs" x="-645.0" y="388.75"/>
+        <position unit="outputs" x="640.0" y="816.25"/>
+        <position unit="resample_image" x="-57" y="305"/>
+    </positions>
+    <zoom level="0.8"/>
+</pipeline>

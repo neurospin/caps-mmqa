@@ -1,0 +1,59 @@
+<pipeline>
+    <docstring>
+        Functional QC (from Power 2014) (Building BOX).
+    </docstring>
+    <units>
+        <unit name="fsl_flirt">
+            <module>nipype.interfaces.fsl.preprocess.FLIRT</module>
+            <set name="output_directory" value="None"/>
+            <set name="terminal_output" value="'stream'"/>
+        </unit>
+        <unit name="get_gray_matter_mask">
+            <module>clindmri.segmentation.freesurfer.mri_binarize</module>
+            <set name="nifti_output" value="True"/>
+        </unit>
+        <unit name="resample_image">
+            <module>clinfmri.statistics.csf_covars.resample_image</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+        <unit name="generate_QC">
+            <module>clinfmri.quality_control.qc_measures.power_scores</module>
+            <set name="output_directory" value="None"/>
+        </unit>
+    </units>
+    <links>
+        <!-- INPUTS -->
+        <link source="structural_file" destination="fsl_flirt.in_file"/>
+        <link source="regions_label" destination="get_gray_matter_mask.regions_label"/>
+        <link source="freesurfer_directory" destination="get_gray_matter_mask.fsdir"/>
+        <link source="subject_id" destination="get_gray_matter_mask.sid"/>
+        <link source="region_ids" destination="get_gray_matter_mask.region_ids"/>
+        <link source="structural_template" destination="fsl_flirt.reference"/>
+        <link source="raw_functinal_nifti" destination="generate_QC.before_fmri_file"/>
+        <link source="erode_path_nb" destination="generate_QC.erode_path_nb"/>
+        <link source="corrected_functional_nifti" destination="generate_QC.after_fmri_file"/>
+        <link source="verbose" destination="resample_image.verbose"/>
+        <!-- INTERNAL LINKS -->
+        <link source="fsl_flirt._out_matrix_file" destination="resample_image.w2wmap_file"/>
+        <link source="get_gray_matter_mask.mask_file" destination="resample_image.source_file"/>
+        <link source="resample_image.resampled_file" destination="generate_QC.gm_mask"/>
+        <link source="raw_functinal_nifti" destination="resample_image.target_file"/>
+
+        <link source="raw_functinal_nifti" destination="generate_QC.after_fmri_file"/>
+
+        <!-- OUTPUTS -->
+        <link source="generate_QC.qc_score" destination="qc_images"/>
+
+    </links>
+
+    <positions>
+        <position unit="fsl_flirt" x="-50" y="-392.5"/>
+        <position unit="generate_QC" x="413.75" y="622.5"/>
+        <position unit="get_gray_matter_mask" x="-287.5" y="255.0"/>
+        <position unit="inputs" x="-645.0" y="388.75"/>
+        <position unit="outputs" x="640.0" y="816.25"/>
+        <position unit="resample_image" x="187.5" y="821.25"/>
+    </positions>
+    <zoom level="0.8"/>
+</pipeline>
+
