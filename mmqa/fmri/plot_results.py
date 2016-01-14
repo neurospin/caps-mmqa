@@ -173,10 +173,12 @@ def plot_images(data_file, selection, out_dir, n_bins=10):
 
             # now plot the mean values
             level = 0.5
+            y_ticks = [level]
             for mean in mean_list:
                 plt.plot(mean, level, 's', linewidth=2.0)
                 _axes.text(mean, level + 0.1, "{0}".format(round(mean, 2)))
                 level += 1
+                y_ticks.append(level)
 
             _axes.set_xlim(ax[:2])
             _axes.set_ylim([0, len(mean_list)])
@@ -184,6 +186,10 @@ def plot_images(data_file, selection, out_dir, n_bins=10):
             # plot vertical lines
             plt.plot([_min, _min], [0, level + 0.5], 'k--')
             plt.plot([_max, _max], [0, level + 0.5], 'k--')
+
+            # change yticks
+            _axes.set_yticks(y_ticks)
+            _axes.set_yticklabels(group_dict.keys())
 
             # legend and text
             plt.title("{0} - means and standard deviation values".format(
