@@ -275,7 +275,8 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
     return slices_to_correct, spikes
 
 
-def display_spikes(array, smd2, spikes, output_fname, title):
+def display_spikes(array, smd2, spikes, output_fname, title,
+                   figsize=(11.7, 8.3)):
     """ Display the detected spikes.
 
     Parameters
@@ -326,39 +327,33 @@ def display_spikes(array, smd2, spikes, output_fname, title):
                 pdf.savefig(fig)
                 plt.close(fig)
 
-                # display the slices, 12 images per page max
-                spike_index_nb = len(np.where(timepoint_spikes > 0)[0])
-                num_pages = spike_index_nb / 12
-                if spike_index_nb % 12 != 0:
-                    num_pages += 1
-
-                for pagenum in range(num_pages):
-                    col_nb = (spike_index_nb - 12 * pagenum) / 4
-                    if spike_index_nb % 4 != 0:
-                        col_nb += 1
-                    if col_nb > 3:
-                        col_nb = 3
-                    if pagenum == range(num_pages)[-1]:
-                        number_of_fig = (spike_index_nb - 12 * pagenum) % 13
-                    else:
-                        number_of_fig = 12
-                    fig = plt.figure()
-                    fig_cnt = 0
-                    for spike_index in np.where(timepoint_spikes > 0)[
-                            0][12 * pagenum: 12 * pagenum + number_of_fig]:
-                        fig_cnt += 1
-                        plot = fig.add_subplot(4, col_nb, fig_cnt)
-                        plt.title("Slice {0}, volume {1}".format(cnt - 1,
-                                                                 spike_index))
-                        plt.imshow(array[spike_index, cnt - 1, :, :],
-                                   cmap=mpl.cm.Greys_r)
-                        frame = plt.gca()
-                        frame.axes.get_xaxis().set_visible(False)
-                        frame.axes.get_yaxis().set_visible(False)
-                    fig.tight_layout()
-                    pdf.savefig(fig)
-                    plt.clf()
-                    plt.close(fig)
+                # Display a mosaic with the spiked slices
+                spikes_indices = np.where(timepoint_spikes > 0)[0]
+                spike_nb = len(spikes_indices)
+                nb_rows_perpage = 1
+                nb_cols_perpage = 2
+                nb_im_perpage = nb_cols_perpage * nb_rows_perpage
+                page_index = 1
+                fig = plt.figure(figsize=figsize)
+                fig.subplots_adjust(top=0.85)
+                for index, spike_index in enumerate(spikes_indices):
+                    if not index // nb_im_perpage < page_index:
+                        pdf.savefig(fig)
+                        fig = plt.figure(figsize=figsize)
+                        fig.subplots_adjust(top=0.85)
+                        page_index += 1
+                    ax = fig.add_subplot(
+                        nb_rows_perpage, nb_cols_perpage,
+                        index + 1 - (page_index - 1) * nb_im_perpage)
+                    plt.title("Slice {0} - volume {1}".format(
+                        cnt - 1, spike_index))
+                    ax.imshow(array[spike_index, cnt - 1, :, :],
+                              cmap=mpl.cm.Greys_r)
+                    frame = plt.gca()
+                    ax.axis("off")
+                pdf.savefig(fig)
+                plt.clf()
+                plt.close(fig)
 
             # Increment slice number
             cnt += 1

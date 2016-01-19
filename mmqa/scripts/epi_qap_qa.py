@@ -21,6 +21,8 @@ import json
 try:
     import bredala
     bredala.USE_PROFILER = False
+    bredala.register("clinfmri.quality_control.movement_quantity",
+        names=["time_serie_mq"])
     bredala.register("nipype.algorithms.misc", names=["TSNR.run"])
     bredala.register("qap.temporal_qc", names=["fd_jenkinson"])
     bredala.register("qap.qap_workflows_utils", names=["qap_functional_spatial",
@@ -38,6 +40,8 @@ try:
                                                "mean_quality_timepoints",
                                                "global_correlation"])
     bredala.register("qap.viz.plotting", names=["plot_mosaic", "plot_fd"])
+    bredala.register("qap.viz.reports", names=["concat_pdf"])
+    bredala.register("mmqa.plot.plotting", names=["plot_measuresf"])
 except:
     pass
 
@@ -50,13 +54,17 @@ import nipype.algorithms.misc as nam
 # Qap import
 from qap.viz.plotting import plot_mosaic
 from qap.viz.plotting import plot_fd
+from qap.viz.reports import concat_pdf
 from qap.temporal_qc import fd_jenkinson
 from qap.qap_workflows_utils import qap_functional_spatial
 from qap.qap_workflows_utils import qap_functional_temporal
 
 # Mmqa import
+from mmqa.normative_measures import abide
+from mmqa.normative_measures import corr
 from mmqa.fmri.fmri_spikes import spike_detector
 from mmqa.fmri.movement_quantity import get_rigid_matrix
+from mmqa.plot.plotting import plot_measures
 
 # Script documentation
 doc = """
@@ -130,6 +138,8 @@ Neuroimage. 76:183-201
 are better.
 * Percent of volumes with FD greater than 0.2mm [perc_fd]: Lower values are
 better.
+* Spike detection: home made.
+* Movement quantity: home made.
 
 The QA results are given with the ABIDE (1,110+ subject across 20+ sites) and
 CoRR (1,400+ subjects across 30+ sites) normative metrics.
@@ -143,6 +153,7 @@ python $HOME/git/caps-mmqa/mmqa/scripts/epi_qap_qa.py \
     -s mysid \
     -m /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/meanaufmri_localizer.nii \
     -a /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/bet.fsl_bet/fmri_localizer_brain_mask.nii.gz \
+    -f /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/ungzip_adapter/ufmri_localizer.nii \
     -t /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/rp_aufmri_localizer.txt \
     -r /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/raufmri_localizer.nii \
     -d all
@@ -220,6 +231,9 @@ parser.add_argument(
     help="the mean epi volume after slice time correction and realignement.",
     type=is_file)
 parser.add_argument(
+    "-f", "--func", dest="func", required=True, metavar="FILE",
+    help="the functional serie.", type=is_file)
+parser.add_argument(
     "-a", "--funcmask", dest="funcmask", required=True, metavar="FILE",
     help="the functional brain mask.", type=is_file)
 parser.add_argument(
@@ -247,6 +261,7 @@ if args.verbose > 0:
     print("Mean EPI: ", args.meanepi)
     print("Functional mask: ", args.funcmask)
     print("Phase encoding direction: ", args.direction)
+figures = []
 subjectdir = os.path.join(args.outdir, args.subjectid)
 if not os.path.isdir(subjectdir):
     os.mkdir(subjectdir)
@@ -267,12 +282,14 @@ qc = qap_functional_spatial(args.meanepi, args.funcmask, args.direction,
                             site_name="mysite", out_vox=True)
 # > compute snaps
 mean_snap = os.path.join(subjectdir, "mean_epi.pdf")
+figures.append(mean_snap)
 fig = plot_mosaic(args.meanepi, title="Mean EPI")
 fig.savefig(mean_snap, dpi=300)
 mean_snap = os.path.join(subjectdir, "mean_epi_masked.pdf")
+figures.append(mean_snap)
 fig = plot_mosaic(args.meanepi, title="Mean EPI", overlay_mask=args.funcmask)
 fig.savefig(mean_snap, dpi=300)
-# > save scores as a CSV file
+# > save scores as a Json file
 scores_json = os.path.join(subjectdir, "qap_functional_spatial.json")
 qc.pop("session")
 qc.pop("scan")
@@ -335,9 +352,11 @@ qc = qap_functional_temporal(funcrealign_file, args.funcmask, tsnr.tsnr_file,
                              site_name="mysite", motion_threshold=1.0)
 # > compute snaps
 tsnr_snap = os.path.join(subjectdir, "tsnr_volume.pdf")
+figures.append(tsnr_snap)
 fig = plot_mosaic(getattr(tsnr, "tsnr_file"), title="tSNR volume")
 fig.savefig(tsnr_snap, dpi=300)
 fd_snap = os.path.join(subjectdir, "plot_fd.pdf")
+figures.append(fd_snap)
 fig = plot_fd(fd_file, title="FD plot")
 fig.savefig(fd_snap, dpi=300)
 # > save scores as a CSV file
@@ -359,22 +378,48 @@ with open(scores_json, "w") as open_file:
     json.dump(qc, open_file, indent=4)
 
 
+"""
+Normative measures
 
-if 0:
+Reference group-level data are depicted as violin plots, with each of the
+plots being a representation of the corresponding values from the column with
+the same name in the normative group-level CSV file.
 
-    # step 1: get movement snap and parameters
-    snap_mvt, displacement_file = time_serie_mq(fmri_file,
-                                                rp_file,
-                                                "SPM",
-                                                working_directory,
-                                                time_axis=-1,
-                                                slice_axis=-2,
-                                                mvt_thr=1.5,
-                                                rot_thr=0.5)
+Parse the abidde normaitve measures and represent the new measure in this
+distribution
+"""
+abide_struct = abide()
+corr_struct = corr()        
+subj_struct = {}
+for fname in ["qap_functional_spatial.json", "qap_functional_temporal.json"]:
+    scores_json = os.path.join(subjectdir, fname)
+    with open(scores_json) as data_file:    
+        subj_struct.update(json.load(data_file))
+for fname, group_struct in [("abide_normative_measures.pdf", abide_struct),
+                            ("corr_normative_measures.pdf", corr_struct)]:
+    dist_snap = os.path.join(subjectdir, fname)
+    figures.append(dist_snap)
+    fig = plot_measures(
+        group_struct, ncols=4, subject_measures=subj_struct,
+        title="QC measures: " + fname.split("_")[0] + " " + args.subjectid,
+        figsize=(8.27, 11.69), display_type="violin")
+    fig.savefig(dist_snap, dpi=300)
 
-    # step 9: spike detection
-    snap_spikes, spikes_file = spike_detector(
-        fmri_file, working_directory)
 
-    with open(spikes_file) as _file:
-        spikes_dict = json.load(_file)
+"""
+Movement quantity and spike detection
+"""
+snap_mvt, displacement_file = time_serie_mq(
+    args.func, args.transformations, "SPM", subjectdir, time_axis=-1,
+    slice_axis=-2, mvt_thr=1.5, rot_thr=0.5)
+figures.append(snap_mvt)
+snap_spike, spikes_file = spike_detector(args.func, subjectdir)
+figures.append(snap_spike)
+
+
+"""
+Create a report
+"""
+report_snap = os.path.join(subjectdir, "report_" + args.subjectid + ".pdf")
+concat_pdf(figures, out_file=report_snap)
+
