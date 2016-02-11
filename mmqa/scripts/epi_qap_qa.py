@@ -22,11 +22,12 @@ try:
     import bredala
     bredala.USE_PROFILER = False
     bredala.register("clinfmri.quality_control.movement_quantity",
-        names=["time_serie_mq"])
+                     names=["time_serie_mq"])
     bredala.register("nipype.algorithms.misc", names=["TSNR.run"])
     bredala.register("qap.temporal_qc", names=["fd_jenkinson"])
-    bredala.register("qap.qap_workflows_utils", names=["qap_functional_spatial",
-                                                       "qap_functional_temporal"])
+    bredala.register("qap.qap_workflows_utils",
+                     names=["qap_functional_spatial",
+                            "qap_functional_temporal"])
     bredala.register("qap.spatial_qc", names=["snr", "cnr", "fber", "efc",
                                               "artifacts", "fwhm",
                                               "ghost_direction", "ghost_all",
@@ -109,8 +110,8 @@ Temporal QA metrics:
 * Standardized DVARS [dvars]: The spatial standard deviation of the temporal
 derivative of the data, normalized by the temporal standard deviation and
 temporal autocorrelation. Lower values are better:
-Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L. and Petersen, S. E.
-(2012) Spurious but systematic correlations in functional connectivity MRI
+Power, J. D., Barnes, K. A., Snyder, A. Z., Schlaggar, B. L. and Petersen, S.
+E. (2012) Spurious but systematic correlations in functional connectivity MRI
 networks arise from subject motion. Neuroimage 59, 2142-2154
 Nichols, T. (2012, Oct 28). Standardizing DVARS. Retrieved from
 http://blogs.warwick.ac.uk/nichols/entry/standardizing_dvars
@@ -221,7 +222,8 @@ parser.add_argument(
     help="if activated, clean the result folder.")
 parser.add_argument(
     "-o", "--outdir", dest="outdir", required=True, metavar="PATH",
-    help="the destination output directory: will create an extra subject level",
+    help="the destination output directory: will create an extra subject"
+         "level",
     type=is_directory)
 parser.add_argument(
     "-s", "--subjectid", dest="subjectid", required=True,
@@ -231,21 +233,44 @@ parser.add_argument(
     help="the mean epi volume after slice time correction and realignement.",
     type=is_file)
 parser.add_argument(
+    "-g", "--wrappedmean", dest="wrappedmean", required=True, metavar="FILE",
+    help=("the mean wrapped epi volume after slice time correction and"
+          " realignement."),
+    type=is_file)
+parser.add_argument(
     "-f", "--func", dest="func", required=True, metavar="FILE",
     help="the functional serie.", type=is_file)
 parser.add_argument(
     "-a", "--funcmask", dest="funcmask", required=True, metavar="FILE",
-    help="the functional brain mask.", type=is_file)
+    help="the template brain mask.", type=is_file)
 parser.add_argument(
     "-t", "--transformations", dest="transformations", required=True,
-    metavar="FILE", help="the functional brain mask.", type=is_file)
+    metavar="FILE",
+    help="the realignment parameters file.", type=is_file)
 parser.add_argument(
     "-r", "--funcrealign", dest="funcrealign", required=True,
-    metavar="FILE", help="the functional realignes serie.", type=is_file)
+    metavar="FILE",
+    help="the functional realignes serie.", type=is_file)
 parser.add_argument(
     "-d", "--direction", dest="direction", choices=["x", "y", "z", "all"],
-    default="y", help="phase encoding (x - RL/LR, y - AP/PA, z - SI/IS, or "
+    default="y",
+    help="phase encoding (x - RL/LR, y - AP/PA, z - SI/IS, or "
     "all) used to acquire the scan.", type=str)
+parser.add_argument(
+    "-c", "--crop_volume", dest="crop", type=int, default=0,
+    help=("set how many of the first volumes have been cut out"
+          " for preprocessing"))
+parser.add_argument(
+    "-b", "--basemask", dest="basemask", required=True,
+    metavar="FILE",
+    help="the reference template mask for normalization",
+    type=is_file)
+parser.add_argument(
+    "-w", "--meanwrappedmask", dest="meanwrappedmask", required=True,
+    metavar="FILE",
+    help="the binary mask of the wrapped mean volume",
+    type=is_file)
+
 
 args = parser.parse_args()
 
@@ -267,7 +292,7 @@ if not os.path.isdir(subjectdir):
     os.mkdir(subjectdir)
 if args.erase:
     shutil.rmtree(subjectdir)
-    os.mkdir(subjectdir)   
+    os.mkdir(subjectdir)
 
 """
 QAP spatial
@@ -276,19 +301,12 @@ QAP spatial
 # out_vox: output the FWHM as # of voxels (otherwise as mm)
 # direction: used to compute signal present outside the brain due to
 #            acquisition in the phase encoding direction
-# > compute scores
+
+# > compute functional spatial scores from QAP library
 qc = qap_functional_spatial(args.meanepi, args.funcmask, args.direction,
                             args.subjectid, "mysession", "myscan",
                             site_name="mysite", out_vox=True)
-# > compute snaps
-mean_snap = os.path.join(subjectdir, "mean_epi.pdf")
-figures.append(mean_snap)
-fig = plot_mosaic(args.meanepi, title="Mean EPI")
-fig.savefig(mean_snap, dpi=300)
-mean_snap = os.path.join(subjectdir, "mean_epi_masked.pdf")
-figures.append(mean_snap)
-fig = plot_mosaic(args.meanepi, title="Mean EPI", overlay_mask=args.funcmask)
-fig.savefig(mean_snap, dpi=300)
+
 # > save scores as a Json file
 scores_json = os.path.join(subjectdir, "qap_functional_spatial.json")
 qc.pop("session")
@@ -298,15 +316,47 @@ for key, value in qc.items():
     if isinstance(value, numpy.double) or isinstance(value, numpy.single):
         qc[key] = float(value)
     if isinstance(value, numpy.core.memmap):
-        if value.dtype==numpy.single or value.dtype==numpy.double:
+        if value.dtype == numpy.single or value.dtype == numpy.double:
             qc[key] = float(value)
-        elif value.dtype==numpy.int:
+        elif value.dtype == numpy.int:
             qc[key] = int(value)
         else:
-            raise ValueError("Unexpected value type '{0}:{1}'".format(key, value))
+            raise ValueError("Unexpected value type '{0}:{1}'".format(key,
+                                                                      value))
 with open(scores_json, "w") as open_file:
     json.dump(qc, open_file, indent=4)
 
+# Control FOV
+mean_snap = os.path.join(subjectdir, "mean_epi.pdf")
+figures.append(mean_snap)
+fig = plot_mosaic(args.meanepi, title="Mean EPI")
+fig.savefig(mean_snap, dpi=300)
+
+
+# Control wrapping on template
+mean_snap_norm = os.path.join(subjectdir, "mean_normalized_epi_masked.pdf")
+figures.append(mean_snap_norm)
+fig = plot_mosaic(args.wrappedmean,
+                  title="Mean wrapped EPI",
+                  overlay_mask=args.basemask)
+fig.savefig(mean_snap_norm, dpi=300)
+# compute overlapping score between template masn and mean mask
+# load masks
+subject_mask_data = nibabel.load(args.meanwrappedmask).get_data()
+template_mask_data = nibabel.load(args.basemask).get_data()
+
+intersect = subject_mask_data + template_mask_data
+
+intersect = 2 * float((intersect == 2).sum()) / \
+    (2 * (intersect == 2).sum() + (intersect == 1).sum())
+
+# final step: save scores in dict
+scores = {"intersection_score": "{0}".format(round(
+    100 * float(intersect), 2))}
+
+scores_json = os.path.join(subjectdir, "extra_scores.json")
+with open(scores_json, "w") as open_file:
+    json.dump(scores, open_file, indent=4)
 
 """
 QAP temporal
@@ -322,6 +372,7 @@ for rigid_params in rparams:
 r12 = numpy.asarray(r12)
 numpy.savetxt(r12_file, r12)
 fd_jenkinson(r12_file, rmax=80., out_file=fd_file)
+
 # > computes the time-course SNR for a time series,
 # typically you want to run this on a realigned time-series.
 funcrealign_file = os.path.join(
@@ -346,7 +397,9 @@ for out_name in ["tsnr_file", "mean_file", "stddev_file"]:
     data_array[numpy.isnan(data_array)] = 0
     nibabel.save(im, path)
     os.remove(tmp_path)
-# > QAP
+
+
+# > compute functional temporal scores from QAP library
 qc = qap_functional_temporal(funcrealign_file, args.funcmask, tsnr.tsnr_file,
                              fd_file, args.subjectid, "mysession", "myscan",
                              site_name="mysite", motion_threshold=1.0)
@@ -359,6 +412,7 @@ fd_snap = os.path.join(subjectdir, "plot_fd.pdf")
 figures.append(fd_snap)
 fig = plot_fd(fd_file, title="FD plot")
 fig.savefig(fd_snap, dpi=300)
+
 # > save scores as a CSV file
 scores_json = os.path.join(subjectdir, "qap_functional_temporal.json")
 qc.pop("session")
@@ -368,12 +422,13 @@ for key, value in qc.items():
     if isinstance(value, numpy.double) or isinstance(value, numpy.single):
         qc[key] = float(value)
     if isinstance(value, numpy.core.memmap):
-        if value.dtype==numpy.single or value.dtype==numpy.double:
+        if value.dtype == numpy.single or value.dtype == numpy.double:
             qc[key] = float(value)
-        elif value.dtype==numpy.int:
+        elif value.dtype == numpy.int:
             qc[key] = int(value)
         else:
-            raise ValueError("Unexpected value type '{0}:{1}'".format(key, value))
+            raise ValueError("Unexpected value type '{0}:{1}'".format(key,
+                                                                      value))
 with open(scores_json, "w") as open_file:
     json.dump(qc, open_file, indent=4)
 
@@ -389,11 +444,11 @@ Parse the abidde normaitve measures and represent the new measure in this
 distribution
 """
 abide_struct = abide()
-corr_struct = corr()        
+corr_struct = corr()
 subj_struct = {}
 for fname in ["qap_functional_spatial.json", "qap_functional_temporal.json"]:
     scores_json = os.path.join(subjectdir, fname)
-    with open(scores_json) as data_file:    
+    with open(scores_json) as data_file:
         subj_struct.update(json.load(data_file))
 for fname, group_struct in [("abide_normative_measures.pdf", abide_struct),
                             ("corr_normative_measures.pdf", corr_struct)]:
@@ -411,7 +466,7 @@ Movement quantity and spike detection
 """
 snap_mvt, displacement_file = time_serie_mq(
     args.func, args.transformations, "SPM", subjectdir, time_axis=-1,
-    slice_axis=-2, mvt_thr=1.5, rot_thr=0.5)
+    slice_axis=-2, mvt_thr=1.5, rot_thr=0.5, volumes_to_ignore=args.crop)
 figures.append(snap_mvt)
 snap_spike, spikes_file = spike_detector(args.func, subjectdir)
 figures.append(snap_spike)
@@ -422,4 +477,3 @@ Create a report
 """
 report_snap = os.path.join(subjectdir, "report_" + args.subjectid + ".pdf")
 concat_pdf(figures, out_file=report_snap)
-
