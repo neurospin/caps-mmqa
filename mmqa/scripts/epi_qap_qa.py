@@ -250,7 +250,15 @@ parser.add_argument(
 parser.add_argument(
     "-r", "--funcrealign", dest="funcrealign", required=True,
     metavar="FILE",
-    help="the functional realignes serie.", type=is_file)
+    help="the functional realigned serie.", type=is_file)
+parser.add_argument(
+    "-u", "--maskrealign", dest="maskrealign", required=True,
+    metavar="FILE",
+    help="the functional realigned mask.", type=is_file)
+parser.add_argument(
+    "-n", "--meanrealign", dest="meanrealign", required=True,
+    metavar="FILE",
+    help="the functional realigned mean volume.", type=is_file)
 parser.add_argument(
     "-d", "--direction", dest="direction", choices=["x", "y", "z", "all"],
     default="y",
@@ -303,7 +311,8 @@ QAP spatial
 #            acquisition in the phase encoding direction
 
 # > compute functional spatial scores from QAP library
-qc = qap_functional_spatial(args.meanepi, args.funcmask, args.direction,
+qc = qap_functional_spatial(args.meanrealign, args.maskrealign,
+                            args.direction,
                             args.subjectid, "mysession", "myscan",
                             site_name="mysite", out_vox=True)
 
@@ -340,7 +349,7 @@ fig = plot_mosaic(args.wrappedmean,
                   title="Mean wrapped EPI",
                   overlay_mask=args.basemask)
 fig.savefig(mean_snap_norm, dpi=300)
-# compute overlapping score between template masn and mean mask
+# compute overlapping score between template mask and mean mask
 # load masks
 subject_mask_data = nibabel.load(args.meanwrappedmask).get_data()
 template_mask_data = nibabel.load(args.basemask).get_data()
@@ -353,10 +362,6 @@ intersect = 2 * float((intersect == 2).sum()) / \
 # final step: save scores in dict
 scores = {"intersection_score": "{0}".format(round(
     100 * float(intersect), 2))}
-
-scores_json = os.path.join(subjectdir, "extra_scores.json")
-with open(scores_json, "w") as open_file:
-    json.dump(scores, open_file, indent=4)
 
 """
 QAP temporal
@@ -400,7 +405,8 @@ for out_name in ["tsnr_file", "mean_file", "stddev_file"]:
 
 
 # > compute functional temporal scores from QAP library
-qc = qap_functional_temporal(funcrealign_file, args.funcmask, tsnr.tsnr_file,
+qc = qap_functional_temporal(funcrealign_file, args.maskrealign,
+                             tsnr.tsnr_file,
                              fd_file, args.subjectid, "mysession", "myscan",
                              site_name="mysite", motion_threshold=1.0)
 # > compute snaps
@@ -464,9 +470,9 @@ for fname, group_struct in [("abide_normative_measures.pdf", abide_struct),
 """
 Movement quantity and spike detection
 """
-snap_mvt, displacement_file = time_serie_mq(
+snap_mvt, displacement_file, mvt_scores = time_serie_mq(
     args.func, args.transformations, "SPM", subjectdir, time_axis=-1,
-    slice_axis=-2, mvt_thr=1.5, rot_thr=0.5, volumes_to_ignore=args.crop)
+    slice_axis=-2, mvt_thr=50, rot_thr=50, volumes_to_ignore=args.crop)
 figures.append(snap_mvt)
 snap_spike, spikes_file = spike_detector(args.func, subjectdir)
 figures.append(snap_spike)
@@ -477,3 +483,9 @@ Create a report
 """
 report_snap = os.path.join(subjectdir, "report_" + args.subjectid + ".pdf")
 concat_pdf(figures, out_file=report_snap)
+
+scores.update(mvt_scores)
+
+scores_json = os.path.join(subjectdir, "extra_scores.json")
+with open(scores_json, "w") as open_file:
+    json.dump(scores, open_file, indent=4)

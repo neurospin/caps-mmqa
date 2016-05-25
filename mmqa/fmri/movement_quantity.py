@@ -224,7 +224,23 @@ def get_rigid_matrix(rigid_params, package):
     T = rigid_params[0:3]
 
     # Get the rotation part from Euler description
-    # cf Bernad Bayle
+    """
+    Given 3 Euler angles x, y, z, the rotation matrix is calculated as follows:
+           |1      0         0    |
+     Rx =  |0     cos(x)   -sin(x)|
+           |0     sin(x)   cos(x) |
+
+           |cos(y)   0      sin(y)|
+     Ry =  |0        1        0   |
+           |-sin(y)  0      cos(y)|
+
+           |cos(z)   -sin(z)    0 |
+     Rz =  |sin(z)    cos(z)    0 |
+           |0         0         1 |
+
+     R = Rz.Ry.Rx
+    """
+
     R = numpy.eye(3)
     Rx = numpy.eye(3)
     Rx[1:3, 1:3] = rotfunc1(rigid_params[5])
@@ -248,8 +264,8 @@ def rotfunc1(x):
 
 
 def rotfunc2(x):
-    return numpy.array([[numpy.cos(x), -numpy.sin(x)],
-                       [numpy.sin(x), numpy.cos(x)]])
+    return numpy.array([[numpy.cos(x), numpy.sin(x)],
+                       [-numpy.sin(x), numpy.cos(x)]])
 
 
 if __name__ == "__main__":
