@@ -241,8 +241,8 @@ parser.add_argument(
     "-f", "--func", dest="func", required=True, metavar="FILE",
     help="the functional serie.", type=is_file)
 parser.add_argument(
-    "-a", "--funcmask", dest="funcmask", required=True, metavar="FILE",
-    help="the template brain mask.", type=is_file)
+    "-a", "--maskrealign", dest="maskrealign", required=True, metavar="FILE",
+    help="the functional realigned mask.", type=is_file)
 parser.add_argument(
     "-t", "--transformations", dest="transformations", required=True,
     metavar="FILE",
@@ -251,10 +251,6 @@ parser.add_argument(
     "-r", "--funcrealign", dest="funcrealign", required=True,
     metavar="FILE",
     help="the functional realigned serie.", type=is_file)
-parser.add_argument(
-    "-u", "--maskrealign", dest="maskrealign", required=True,
-    metavar="FILE",
-    help="the functional realigned mask.", type=is_file)
 parser.add_argument(
     "-n", "--meanrealign", dest="meanrealign", required=True,
     metavar="FILE",
@@ -278,7 +274,10 @@ parser.add_argument(
     metavar="FILE",
     help="the binary mask of the wrapped mean volume",
     type=is_file)
-
+parser.add_argument(
+    "-i", "--scanner_id", dest="scan_id",
+    default="unknown",
+    help="The scanner id, recommended form: <manufacturer>_<model>", type=str)
 
 args = parser.parse_args()
 
@@ -292,7 +291,7 @@ if args.verbose > 0:
     print("Computing spatio temporal epi QA")
     print("#" * 20)
     print("Mean EPI: ", args.meanepi)
-    print("Functional mask: ", args.funcmask)
+    print("Functional realigned mask: ", args.maskrealign)
     print("Phase encoding direction: ", args.direction)
 figures = []
 subjectdir = os.path.join(args.outdir, args.subjectid)
@@ -305,11 +304,9 @@ if args.erase:
 """
 QAP spatial
 """
-
 # out_vox: output the FWHM as # of voxels (otherwise as mm)
 # direction: used to compute signal present outside the brain due to
 #            acquisition in the phase encoding direction
-
 # > compute functional spatial scores from QAP library
 qc = qap_functional_spatial(args.meanrealign, args.maskrealign,
                             args.direction,
@@ -474,6 +471,7 @@ snap_mvt, displacement_file, mvt_scores = time_serie_mq(
     args.func, args.transformations, "SPM", subjectdir, time_axis=-1,
     slice_axis=-2, mvt_thr=50, rot_thr=50, volumes_to_ignore=args.crop)
 figures.append(snap_mvt)
+# spike
 snap_spike, spikes_file = spike_detector(args.func, subjectdir)
 figures.append(snap_spike)
 
@@ -485,6 +483,7 @@ report_snap = os.path.join(subjectdir, "report_" + args.subjectid + ".pdf")
 concat_pdf(figures, out_file=report_snap)
 
 scores.update(mvt_scores)
+scores.update({"scanner": args.scan_id})
 
 scores_json = os.path.join(subjectdir, "extra_scores.json")
 with open(scores_json, "w") as open_file:

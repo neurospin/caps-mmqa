@@ -111,7 +111,8 @@ def median_absolute_deviation(array, c=scipy.stats.norm.ppf(3/4.), axis=0,
     array: array-like
         input array.
     c: float (optional, default scipy.stats.norm.ppf(3/4.) ~ .6745
-        the normalization constant.
+        the normalization constant. Thus we return an approximation of
+        the standard deviation (consistent estimator)
     axis: int (optional default 0)
         axes over which the callable fucntion `center` is applied.
     center: callable or float (default `np.median`)

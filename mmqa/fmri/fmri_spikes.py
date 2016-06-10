@@ -483,18 +483,21 @@ def final_detection(spikes):
     """
     # Initialize the detection result
     shape = spikes.shape
-    final = np.zeros(shape=(shape[0] + 1, shape[1]), dtype=np.int)
-
+    final = -1 * np.ones(shape=(shape[0] + 1, shape[1]), dtype=np.int)
     # Detect patterns of interest
-    final[0] = detect_pattern(spikes[0: 2], [1, 0])[0]
-    final[2: shape[0] - 1] += detect_pattern(spikes, [0, 1, 1, 0])
-    final[-1] += detect_pattern(spikes[-3:], [0, 1, 1])[0]
-    final[-1] += detect_pattern(spikes[-2:], [0, 1])[0]
+    final[0] = detect_pattern(spikes[:2, :], [1, 0])
+    final[1] = detect_pattern(spikes[:3, :], [1, 1, 0])
+    final[2: shape[0] - 1] = detect_pattern(spikes, [0, 1, 1, 0])
+    final[-2] = detect_pattern(spikes[-3:], [0, 1, 1])
+    final[-1] = detect_pattern(spikes[-2:], [0, 1])
+    # Detect if all values in the final array have been set
+    if np.min(final) < 0:
+        raise ValueError("Detection failed, check matrices shapes")
 
     # Information message
     logger.info("The final spike detection matrix is '%s' when looking for "
-                "global pattern [0, 1, 1, 0], begining pattern [1, 0] and "
-                "final patterns [0, 1, 1] and [0, 1].", final)
+                "global pattern [0, 1, 1, 0], begining patterns [1, 0] and "
+                "[1, 1, 0] and final patterns [0, 1, 1] and [0, 1].", final)
 
     return final
 
