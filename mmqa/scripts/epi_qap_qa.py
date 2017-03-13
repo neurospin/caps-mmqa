@@ -48,6 +48,7 @@ except:
 
 # Clinfmri imports
 from clinfmri.quality_control.movement_quantity import time_serie_mq
+from clinfmri.quality_control.movement_quantity import get_rigid_matrix
 
 # Nipype import
 import nipype.algorithms.misc as nam
@@ -64,8 +65,10 @@ from qap.qap_workflows_utils import qap_functional_temporal
 from mmqa.normative_measures import abide
 from mmqa.normative_measures import corr
 from mmqa.fmri.fmri_spikes import spike_detector
-from mmqa.fmri.movement_quantity import get_rigid_matrix
+#from mmqa.fmri.movement_quantity import get_rigid_matrix
 from mmqa.plot.plotting import plot_measures
+from mmqa.fmri.fmri_FoV import control_fov
+from mmqa.fmri.fmri_signal_loss import signal_loss
 
 # Script documentation
 doc = """
@@ -78,7 +81,8 @@ preprocessing/processing.
 This scipt depends on two Python modules:
 * QAP: collection of three quality assessment pipelines for anatomical MRI and
   functional MRI scans.
-  https://github.com/preprocessed-connectomes-project/quality-assessment-protocol
+  https://github.com/preprocessed-connectomes-project/
+      quality-assessment-protocol
 * CLINFMRI: a tool dedicated to functional processings.
   https://github.com/neurospin/caps-clinfmri
 
@@ -152,13 +156,17 @@ python $HOME/git/caps-mmqa/mmqa/scripts/epi_qap_qa.py \
     -e \
     -o /volatile/nsap/qap \
     -s mysid \
-    -m /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/meanaufmri_localizer.nii \
-    -a /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/bet.fsl_bet/fmri_localizer_brain_mask.nii.gz \
-    -f /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/ungzip_adapter/ufmri_localizer.nii \
-    -t /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/rp_aufmri_localizer.txt \
-    -r /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/realign/raufmri_localizer.nii \
+    -m /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/\
+        realign/meanaufmri_localizer.nii \
+    -a /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/\
+        bet.fsl_bet/fmri_localizer_brain_mask.nii.gz \
+    -f /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/\
+        ungzip_adapter/ufmri_localizer.nii \
+    -t /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/\
+        realign/rp_aufmri_localizer.txt \
+    -r /volatile/nsap/catalogue/pclinfmri/fmri_preproc_spm_fmri/\
+        realign/raufmri_localizer.nii \
     -d all
-
 
 Local multi-processing:
 
@@ -233,7 +241,7 @@ parser.add_argument(
     help="the mean epi volume after slice time correction and realignement.",
     type=is_file)
 parser.add_argument(
-    "-g", "--wrappedmean", dest="wrappedmean", required=True, metavar="FILE",
+    "-g", "--wrappedmean", dest="wrappedmean", required=False, metavar="FILE",
     help=("the mean wrapped epi volume after slice time correction and"
           " realignement."),
     type=is_file)
@@ -265,12 +273,12 @@ parser.add_argument(
     help=("set how many of the first volumes have been cut out"
           " for preprocessing"))
 parser.add_argument(
-    "-b", "--basemask", dest="basemask", required=True,
+    "-b", "--basemask", dest="basemask", required=False,
     metavar="FILE",
     help="the reference template mask for normalization",
     type=is_file)
 parser.add_argument(
-    "-w", "--meanwrappedmask", dest="meanwrappedmask", required=True,
+    "-w", "--meanwrappedmask", dest="meanwrappedmask", required=False,
     metavar="FILE",
     help="the binary mask of the wrapped mean volume",
     type=is_file)
@@ -278,9 +286,22 @@ parser.add_argument(
     "-i", "--scanner_id", dest="scan_id",
     default="unknown",
     help="The scanner id, recommended form: <manufacturer>_<model>", type=str)
+parser.add_argument(
+    "-k", "--motion_threshold", dest="motion_threshold", type=float,
+    default=1.0,
+    help=("set motion threshold for frame displacement analysis "
+          "(qap pipeline)"))
+parser.add_argument(
+    "-p", "--package", dest="package",
+    default="SPM",
+    help="Library used to perform realignment ('FSL' or 'SPM')", type=str)
+parser.add_argument(
+    "-l", "--slmask", dest="slmask", required=False,
+    metavar="FILE",
+    help="the mask used for signal-loss measure",
+    type=is_file)
 
 args = parser.parse_args()
-
 
 """
 Create first the subject directory properly and display some information
@@ -300,6 +321,13 @@ if not os.path.isdir(subjectdir):
 if args.erase:
     shutil.rmtree(subjectdir)
     os.mkdir(subjectdir)
+
+"""
+Get movement quantity, the figure will be added at the end
+"""
+snap_mvt, displacement_file, mvt_scores = time_serie_mq(
+    args.func, args.transformations, args.package, subjectdir, time_axis=-1,
+    slice_axis=-2, mvt_thr=50, rot_thr=50, volumes_to_ignore=args.crop)
 
 """
 QAP spatial
@@ -337,28 +365,44 @@ mean_snap = os.path.join(subjectdir, "mean_epi.pdf")
 figures.append(mean_snap)
 fig = plot_mosaic(args.meanepi, title="Mean EPI")
 fig.savefig(mean_snap, dpi=300)
+fov_coverage, fov_score = control_fov(args.maskrealign, threshold=0, verbose=0)
 
+if args.slmask:
+    # measure signal loss in brain region (e.g. lower anterior quadrant)
+    sl_value = signal_loss(args.wrappedmean, args.meanwrappedmask,
+                           args.slmask, verbose=0)
+else:
+    sl_value = None
 
 # Control wrapping on template
-mean_snap_norm = os.path.join(subjectdir, "mean_normalized_epi_masked.pdf")
-figures.append(mean_snap_norm)
-fig = plot_mosaic(args.wrappedmean,
-                  title="Mean wrapped EPI",
-                  overlay_mask=args.basemask)
-fig.savefig(mean_snap_norm, dpi=300)
+if args.wrappedmean:
+    mean_snap_norm = os.path.join(subjectdir, "mean_normalized_epi_masked.pdf")
+    figures.append(mean_snap_norm)
+    fig = plot_mosaic(args.wrappedmean,
+                      title="Mean wrapped EPI",
+                      overlay_mask=args.basemask)
+    fig.savefig(mean_snap_norm, dpi=300)
+
 # compute overlapping score between template mask and mean mask
 # load masks
-subject_mask_data = nibabel.load(args.meanwrappedmask).get_data()
-template_mask_data = nibabel.load(args.basemask).get_data()
+if args.meanwrappedmask and args.basemask:
+    subject_mask_data = nibabel.load(args.meanwrappedmask).get_data()
+    template_mask_data = nibabel.load(args.basemask).get_data()
 
-intersect = subject_mask_data + template_mask_data
+    intersect = subject_mask_data + template_mask_data
 
-intersect = 2 * float((intersect == 2).sum()) / \
-    (2 * (intersect == 2).sum() + (intersect == 1).sum())
+    intersect = 2 * float((intersect == 2).sum()) / \
+        (2 * (intersect == 2).sum() + (intersect == 1).sum())
+
+    intersect_score = round(100 * float(intersect), 2)
+else:
+    intersect_score = None
 
 # final step: save scores in dict
-scores = {"intersection_score": "{0}".format(round(
-    100 * float(intersect), 2))}
+scores = {"intersection_score": intersect_score,
+          "fov_cov": fov_coverage,
+          "fov_intersect": fov_score,
+          "signal_loss": sl_value}
 
 """
 QAP temporal
@@ -370,7 +414,7 @@ r12_file = os.path.join(
 rparams = numpy.loadtxt(args.transformations)
 r12 = []
 for rigid_params in rparams:
-    r12.append(get_rigid_matrix(rigid_params, "SPM")[:-1].ravel())
+    r12.append(get_rigid_matrix(rigid_params, args.package)[:-1].ravel())
 r12 = numpy.asarray(r12)
 numpy.savetxt(r12_file, r12)
 fd_jenkinson(r12_file, rmax=80., out_file=fd_file)
@@ -405,7 +449,8 @@ for out_name in ["tsnr_file", "mean_file", "stddev_file"]:
 qc = qap_functional_temporal(funcrealign_file, args.maskrealign,
                              tsnr.tsnr_file,
                              fd_file, args.subjectid, "mysession", "myscan",
-                             site_name="mysite", motion_threshold=1.0)
+                             site_name="mysite",
+                             motion_threshold=args.motion_threshold)
 # > compute snaps
 tsnr_snap = os.path.join(subjectdir, "tsnr_volume.pdf")
 figures.append(tsnr_snap)
@@ -465,14 +510,11 @@ for fname, group_struct in [("abide_normative_measures.pdf", abide_struct),
 
 
 """
-Movement quantity and spike detection
+Movement quantity (add figures) and spike detection
 """
-snap_mvt, displacement_file, mvt_scores = time_serie_mq(
-    args.func, args.transformations, "SPM", subjectdir, time_axis=-1,
-    slice_axis=-2, mvt_thr=50, rot_thr=50, volumes_to_ignore=args.crop)
 figures.append(snap_mvt)
 # spike
-snap_spike, spikes_file = spike_detector(args.func, subjectdir)
+snap_spike, spikes_file = spike_detector(args.func, subjectdir, zalph=2.5)
 figures.append(snap_spike)
 
 

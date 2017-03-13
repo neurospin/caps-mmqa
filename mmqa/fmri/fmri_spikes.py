@@ -13,6 +13,7 @@ import json
 import numpy as np
 import nibabel
 import logging
+from scipy.ndimage.morphology import binary_dilation
 
 # Matplotlib backend: deal with no X terminal
 import matplotlib as mpl
@@ -31,7 +32,7 @@ from stats_utils import mutual_information
 
 
 def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
-                   slice_axis=-2, title=None):
+                   slice_axis=-2, title=None, roi_mask_file=None):
     """ Detect spiked slices.
 
     Raises
@@ -59,6 +60,25 @@ def spike_detector(image_file, output_directory, zalph=5., time_axis=-1,
     # Load the image and get the associated numpy array
     image = nibabel.load(image_file)
     array = image.get_data()
+
+    # get_roi only if necessary
+    if roi_mask_file is not None:
+        roi_mask_nif = nibabel.load(roi_mask_file)
+        roi_mask = roi_mask_nif.get_data()
+        roi_mask = binary_dilation(roi_mask, iterations=4)
+        roi_mask = roi_mask.astype(int)
+        nx = roi_mask.shape[0]
+        ny = roi_mask.shape[1]
+        roi_mask[int(round(float(nx) / 5, 0)):4 * int(round(float(nx) / 5, 0)),
+                 int(round(float(ny) / 5, 0)):4 * int(round(float(ny) / 5, 0)),
+                 :] = 1
+        roi_mask = np.repeat(roi_mask[:, :, :, np.newaxis],
+                             array.shape[3], axis=3)
+        roi_nifti = nibabel.Nifti1Image(roi_mask,
+                                        affine=roi_mask_nif.get_affine())
+        nibabel.save(roi_nifti,
+                     os.path.join(output_directory, "roi_spike_mask.nii.gz"))
+        array = array * (1. - roi_mask)
 
     # Check the input specified axis parameters
     if array.ndim != 4:
@@ -251,13 +271,14 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
                 "number of slices).", smd2.shape)
 
     # Detect spikes from quared difference
-    spikes = spikes_from_slice_diff(smd2, zalph)
+    spikes, meds, mads = spikes_from_slice_diff(smd2, zalph)
 
     # Filter the spikes to preserve outliers only
     final_spikes = final_detection(spikes)
 
     # Find which timepoints and which slices are affected
     times_to_correct = np.where(final_spikes.sum(axis=1) > 0)[0]
+
     slices_to_correct = {}
     for timepoint in times_to_correct:
         slices_to_correct[timepoint] = np.where(
@@ -270,12 +291,13 @@ def detect_spikes_time_slice_diffs(array, zalph=5., time_axis=-1,
 
     # Display detected spikes
     if output_fname is not None:
-        display_spikes(array, smd2, spikes, output_fname, title)
+        display_spikes(array, smd2, spikes, meds, mads, zalph,
+                       output_fname, title)
 
     return slices_to_correct, spikes
 
 
-def display_spikes(array, smd2, spikes, output_fname, title,
+def display_spikes(array, smd2, spikes, meds, mads, zalph, output_fname, title,
                    figsize=(11.7, 8.3)):
     """ Display the detected spikes.
 
@@ -305,7 +327,9 @@ def display_spikes(array, smd2, spikes, output_fname, title,
     # Go through all timepoints
     pdf = PdfPages(output_fname)
     try:
-        for timepoint_smd2, timepoint_spikes in zip(smd2.T, spikes.T):
+        for timepoint_smd2, timepoint_spikes, med, mad in zip(smd2.T,
+                                                              spikes.T,
+                                                              meds, mads):
 
             # If at least one spike is detected, generate a subplot
             if timepoint_spikes.sum() > 0:
@@ -318,15 +342,32 @@ def display_spikes(array, smd2, spikes, output_fname, title,
                                                                  title))
                 else:
                     plt.title("Spikes for slice {0}".format(cnt - 1))
-                plot.plot(range(nb_of_timepoints), timepoint_smd2, "yo-")
+
+                plt.plot(range(nb_of_timepoints), timepoint_smd2, "yo-",
+                         range(nb_of_timepoints),
+                         [med] * nb_of_timepoints, 'g',
+                         range(nb_of_timepoints),
+                         [med + mad * zalph] * nb_of_timepoints, 'r')
                 for spike_index in np.where(timepoint_spikes > 0)[0]:
-                    plot.plot((spike_index, spike_index),
-                              (0, timepoint_smd2[spike_index]), "r")
+
+                    plot.axes.annotate("",
+                                       (spike_index,
+                                        1.02 * timepoint_smd2[spike_index]),
+                                       xytext=(
+                                           spike_index,
+                                           1.08 * timepoint_smd2[spike_index]),
+                                       xycoords="data",
+                                       size=2, va="top", ha="center",
+                                       arrowprops=dict(facecolor='blue',
+                                                       width=1.5,
+                                                       frac=0.1,
+                                                       headwidth=2.5)
+                                       )
+
                 plot.axes.set_xlabel("Volumes")
                 plot.axes.set_ylabel("Slice mean squared difference")
                 pdf.savefig(fig)
                 plt.close(fig)
-
                 # Display a mosaic with the spiked slices
                 spikes_indices = np.where(timepoint_spikes > 0)[0]
                 spike_nb = len(spikes_indices)
@@ -346,7 +387,7 @@ def display_spikes(array, smd2, spikes, output_fname, title,
                         nb_rows_perpage, nb_cols_perpage,
                         index + 1 - (page_index - 1) * nb_im_perpage)
                     plt.title("Slice {0} - volume {1}".format(
-                        cnt - 1, spike_index))
+                        cnt - 1, spike_index, meds[cnt - 1], mads[cnt - 1]))
                     ax.imshow(array[spike_index, cnt - 1, :, :],
                               cmap=mpl.cm.Greys_r)
                     frame = plt.gca()
@@ -396,6 +437,9 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
     spikes = np.zeros(shape=shape, dtype=np.int)
     lower_spikes = np.zeros(shape=shape, dtype=np.int)
 
+    locs = []
+    scales = []
+
     # Go through all slices
     for slice_index in range(shape[1]):
 
@@ -407,6 +451,9 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
         loc = np.median(smd2[:, slice_index])
         scale = median_absolute_deviation(smd2[:, slice_index])
 
+        locs.append(loc)
+        scales.append(scale)
+
         # Detect the outliers
         spikes[:, slice_index] = (smd2[:, slice_index] > loc + zalph * scale)
         lower_spikes[:, slice_index] = (smd2[:, slice_index] > loc +
@@ -417,7 +464,7 @@ def spikes_from_slice_diff(smd2, zalph=5., lower_zalph=3.):
                     slice_index,
                     spikes[:, slice_index], lower_spikes[:, slice_index])
 
-    return spikes
+    return spikes, locs, scales
 
 
 def detect_pattern(array, pattern, ppos=None, dpos=0):
