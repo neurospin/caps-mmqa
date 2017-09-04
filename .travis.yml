@@ -10,9 +10,6 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=/home/travis/miniconda/bin:$PATH
     - hash -r
-    - bash <(wget -q -O- http://neuro.debian.net/_files/neurodebian-travis.sh)
-    - travis_retry sudo apt-get install -qq --no-install-recommends fsl
-    - source /etc/fsl/fsl.sh
 install:
     - conda update --yes conda
     - conda create -n testenv --yes pip python=$TRAVIS_PYTHON_VERSION
@@ -22,13 +19,10 @@ install:
     - git clone https://github.com/neurospin/caps-mmutils.git /tmp/caps-mmutils
     - export PYTHONPATH=$PYTHONPATH:/tmp/caps-mmutils
     - pip install ordereddict
-    - pip install importlib
     - pip install ez_setup
     - pip install soma-workflow
-    - pip install capsul
     - pip install matplotlib
     - pip install nibabel
-    - pip install pydicom
     - pip install nipype
     - pip install nose
     - pip install nose-exclude
@@ -37,11 +31,10 @@ install:
     - pip install pep8
     - git clone -b glossary https://github.com/AGrigis/capsul.git /tmp/capsul
     - export PYTHONPATH=$PYTHONPATH:/tmp/capsul
-    - python setup.py install
 
 script:
     - python setup.py nosetests
-    - pep8 . --ignore="E121,E123,E126,E226,E24,E704,E402"
+    - pep8 . --ignore="E121,E123,E126,E226,E24,E704,E402" --exclude='./.eggs'
 
 after_success:
     - cat .coverage | wc

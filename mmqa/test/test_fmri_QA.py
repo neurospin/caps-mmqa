@@ -15,8 +15,6 @@ import tempfile
 import json
 
 
-
-
 def pilot_qa_fmri():
     """
     Imports
@@ -57,12 +55,10 @@ def pilot_qa_fmri():
     must be set to True if more than 1 CPU is used.
     """
     study_config = StudyConfig(
-        modules=[],
-        output_directory=outdir,
         number_of_cpus=1,
         generate_logging=True,
-        use_scheduler=True)
-
+        use_scheduler=True,
+        output_directory=outdir)
     """
     Get the toy dataset
     -------------------
@@ -72,7 +68,7 @@ def pilot_qa_fmri():
     locally.
     """
 
-    localizer_dataset = get_sample_data("localizer")
+    localizer_dataset = get_sample_data("localizer_extra")
 
     """
     Pipeline definition
@@ -88,6 +84,8 @@ def pilot_qa_fmri():
     pipeline = get_process_instance(pipeline_name)
     pipeline.image_file = localizer_dataset.fmri
     pipeline.repetition_time = 2.0
+    pipeline.exclude_volume = []
+    pipeline.roi_size = 21
     pipeline.score_file = os.path.join(outdir, "scores.json")
 
     """
@@ -149,4 +147,3 @@ def test():
 
 if __name__ == "__main__":
     test()
-
